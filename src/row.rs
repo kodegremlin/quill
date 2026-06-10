@@ -1,7 +1,14 @@
+#![allow(dead_code)] // * FIXME: remove after the project uses this module.
+
+/* TODO: document the code and for simple functions just introduce what
+the function does */
+
+use std::ops::{Index, Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
 use unicode_width::UnicodeWidthChar;
 
 use crate::errors::{Error, Result};
 
+/// Number of spaces a tab takes.
 const TAB_STOP: usize = 4;
 
 /// Row is the line representation of what a String would look like. It is a different
@@ -123,5 +130,149 @@ impl Row {
             }
         }
         Ok(())
+    }
+
+    pub fn buffer(&self) -> &str {
+        &self.buffer.as_str()
+    }
+
+    pub fn render_text(&self) -> &str {
+        &self.render.as_str()
+    }
+
+    /// Returns the character at the provided index.
+    ///
+    /// # Panic
+    /// If the character is not found at the provided index.
+    pub fn char_at(&self, idx: usize) -> char {
+        self.chat_at_checked(idx)
+            .expect("character should have been present at the provided index")
+    }
+
+    /// Returns an Option with the character at the provided index.
+    pub fn chat_at_checked(&self, idx: usize) -> Option<char> {
+        // if it doesn't work properly check the trait implementations.
+        self[idx..].chars().next()
+    }
+
+    pub fn rx_from_cx(&self, cx: usize) -> usize {
+        self[..cx].chars().fold(0, |rx, ch| {
+            if ch == '\t' {
+                rx + TAB_STOP - (rx % TAB_STOP)
+            } else {
+                rx + ch.width_cjk().unwrap()
+            }
+        })
+    }
+
+    pub fn insert_char(&mut self, idx: usize, ch: char) {
+        if self.len() <= idx {
+            self.buffer.push(ch);
+        } else {
+            let b_idx = self.char_to_byte_idx(idx);
+            self.buffer.insert(b_idx, ch);
+        }
+        self.update_render().unwrap();
+    }
+
+    pub fn insert_str<S: AsRef<str>>(&mut self, idx: usize, strs: S) {
+        if self.len() <= idx {
+            self.buffer.push_str(strs.as_ref());
+        } else {
+            let b_idx = self.char_to_byte_idx(idx);
+            self.buffer.insert_str(b_idx, strs.as_ref());
+        }
+        self.update_render().unwrap();
+    }
+
+    pub fn delete_char(&mut self, idx: usize) {
+        if idx < self.len() {
+            let b_idx = self.char_to_byte_idx(idx);
+            self.buffer.remove(b_idx);
+            self.update_render().unwrap();
+        }
+    }
+
+    pub fn append<S: AsRef<str>>(&mut self, strs: S) {
+        let strs = strs.as_ref();
+        if strs.is_empty() {
+            return;
+        }
+        self.buffer.push_str(strs);
+        self.update_render().unwrap();
+    }
+
+    pub fn truncate(&mut self, idx: usize) {
+        if idx < self.len() {
+            let b_idx = self.char_to_byte_idx(idx);
+            self.truncate(b_idx);
+            self.update_render().unwrap();
+        }
+    }
+
+    /// `delete_char` can be used instead, double check why remove_char is needed.
+    /// The current implementation differs only in bounds check.
+    pub fn remove_char(&mut self, idx: usize) {
+        let b_idx = self.char_to_byte_idx(idx);
+        self.buffer.remove(b_idx);
+        self.update_render().unwrap();
+    }
+
+    pub fn remove(&mut self, start: usize, end: usize) {
+        if start < end {
+            let b_start = self.char_to_byte_idx(start);
+            let b_end = self.char_to_byte_idx(end);
+            self.buffer.drain(b_start..b_end);
+            self.update_render().unwrap();
+        }
+    }
+}
+
+// Implementation of the Index trait with every Range type.
+
+impl Index<Range<usize>> for Row {
+    type Output = str;
+
+    fn index(&self, r: Range<usize>) -> &Self::Output {
+        let start = self.char_to_byte_idx(r.start);
+        let end = self.char_to_byte_idx(r.end);
+        &self.buffer[start..end]
+    }
+}
+
+impl Index<RangeFrom<usize>> for Row {
+    type Output = str;
+
+    fn index(&self, r: RangeFrom<usize>) -> &Self::Output {
+        let start = self.char_to_byte_idx(r.start);
+        &self.buffer[start..]
+    }
+}
+
+impl Index<RangeTo<usize>> for Row {
+    type Output = str;
+
+    fn index(&self, r: RangeTo<usize>) -> &Self::Output {
+        let end = self.char_to_byte_idx(r.end);
+        &self.buffer[..end]
+    }
+}
+
+impl Index<RangeInclusive<usize>> for Row {
+    type Output = str;
+
+    fn index(&self, r: RangeInclusive<usize>) -> &Self::Output {
+        let start = self.char_to_byte_idx(*r.start());
+        let end = self.char_to_byte_idx(*r.end());
+        &self.buffer[start..=end]
+    }
+}
+
+impl Index<RangeToInclusive<usize>> for Row {
+    type Output = str;
+
+    fn index(&self, r: RangeToInclusive<usize>) -> &Self::Output {
+        let end = self.char_to_byte_idx(r.end);
+        &self.buffer[..=end]
     }
 }

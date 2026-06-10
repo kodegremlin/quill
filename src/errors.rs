@@ -1,7 +1,10 @@
+#![allow(dead_code)]
+
 use std::{fmt, io, time::SystemTimeError};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+#[derive(Debug)]
 /// Errors the terminal can encounter.
 pub enum Error {
     IoError(io::Error),
