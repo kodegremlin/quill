@@ -1,6 +1,8 @@
 use crate::row::Row;
 
+mod color;
 mod errors;
+mod lang;
 mod row;
 
 fn main() {

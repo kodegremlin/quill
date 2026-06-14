@@ -1,0 +1,75 @@
+#![allow(dead_code)]
+
+use std::path::Path;
+
+#[derive(Debug)]
+pub struct LanguageMeta {
+    pub extensions: &'static [&'static str],
+    pub name: &'static str,
+    pub indent: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Language {
+    PlainText,
+    Rust,
+    Go,
+    CLang,
+    Java,
+}
+
+impl Default for Language {
+    fn default() -> Self {
+        Self::PlainText
+    }
+}
+
+impl Language {
+    pub fn metadata(self) -> LanguageMeta {
+        LanguageMeta {
+            extensions: self.extensions(),
+            name: self.name(),
+            indent: self.indent(),
+        }
+    }
+
+    fn extensions(self) -> &'static [&'static str] {
+        match self {
+            Language::PlainText => &[],
+            Language::CLang => &["c", "h"],
+            Language::Rust => &["rs"],
+            Language::Java => &["java"],
+            Language::Go => &["go"],
+        }
+    }
+
+    fn indent(self) -> &'static str {
+        match self {
+            Language::Go => "\t",
+            _ => "    ",
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Language::PlainText => "plain",
+            Language::Rust => "rust",
+            Language::Go => "go",
+            Language::CLang => "clang",
+            Language::Java => "java",
+        }
+    }
+
+    pub fn detect<S: AsRef<Path>>(path: S) -> Self {
+        use Language::*;
+
+        if let Some(ext) = path.as_ref().extension().and_then(|x| x.to_str()) {
+            for lang in [PlainText, CLang, Rust, Java, Go] {
+                if lang.extensions().contains(&ext) {
+                    return lang;
+                }
+            }
+        }
+        PlainText
+    }
+}
