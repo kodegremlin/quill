@@ -25,6 +25,7 @@ impl Default for Language {
 }
 
 impl Language {
+    /// Returns the language's name, extensions, and indentation settings.
     pub fn metadata(self) -> LanguageMeta {
         LanguageMeta {
             extensions: self.extensions(),
@@ -60,6 +61,9 @@ impl Language {
         }
     }
 
+    /// Detects a language from the file extension.
+    ///
+    /// Returns [`Language::PlainText`] when no matching extension is found.
     pub fn detect<S: AsRef<Path>>(path: S) -> Self {
         use Language::*;
 
