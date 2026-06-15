@@ -9,7 +9,7 @@ use crossterm::{
 
 use std::io;
 
-use crate::errors::Result;
+use anyhow::Result;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyEvent {

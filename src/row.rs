@@ -3,10 +3,9 @@
 /* TODO: document the code and for simple functions just introduce what
 the function does */
 
+use anyhow::{Result, anyhow};
 use std::ops::{Index, Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
 use unicode_width::UnicodeWidthChar;
-
-use crate::errors::{Error, Result};
 
 /// Number of spaces a tab takes.
 const TAB_STOP: usize = 4;
@@ -113,7 +112,7 @@ impl Row {
             } else {
                 // Control characters are valid UTF-8 but they should not appear
                 // in text and we won't be handling them.
-                return Err(Error::ControlCharInText(ch));
+                return Err(anyhow!("Control character in text: {}", ch));
             }
             num_chars += 1;
         }
