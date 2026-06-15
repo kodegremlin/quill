@@ -1,8 +1,5 @@
 #![allow(dead_code)] // * FIXME: remove after the project uses this module.
 
-/* TODO: document the code and for simple functions just introduce what
-the function does */
-
 use anyhow::{Result, bail};
 use std::ops::{Index, Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
 use unicode_width::UnicodeWidthChar;

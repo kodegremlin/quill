@@ -79,20 +79,26 @@ pub enum Key {
     Unknown,
 }
 
+/// Introduces the RAII pattern to enable/disable raw mode and adjacent features
+/// for the editor.
+///
+/// # Implements
+/// It implements [`Drop`] to restore the terminal to its original state when
+/// the guard is dropped, so as to not leave the user with a broken terminal.
 pub struct TerminalGuard;
-
-impl Drop for TerminalGuard {
-    fn drop(&mut self) {
-        let _ = execute!(io::stdout(), Show, LeaveAlternateScreen);
-        let _ = terminal::disable_raw_mode();
-    }
-}
 
 impl TerminalGuard {
     pub fn enter() -> Result<Self> {
         terminal::enable_raw_mode()?;
         execute!(io::stdout(), EnterAlternateScreen, Hide)?;
         Ok(Self)
+    }
+}
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        let _ = execute!(io::stdout(), Show, LeaveAlternateScreen);
+        let _ = terminal::disable_raw_mode();
     }
 }
 
