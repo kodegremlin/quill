@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crossterm::style;
+use crossterm::style::Color;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TextElement {
@@ -21,16 +21,11 @@ pub enum UiElement {
     Background,
     SearchMatches,
     CurrentMatch,
-    Modes(Mode),
+    ModeNormal,
+    ModeInsert,
+    ModeVisual,
     StatusBar,
     StatusBarInactive,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Mode {
-    Normal,
-    Insert,
-    Visual,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,44 +34,65 @@ pub enum ThemeElement {
     Ui(UiElement),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Style {
+    pub fg: Color,
+    pub bg: Option<Color>,
+}
+
 pub struct Theme;
 
 impl Theme {
-    pub fn color_for(&self, color: ThemeElement) -> style::Color {
-        match color {
-            ThemeElement::Text(text) => color_for_text(text),
-            ThemeElement::Ui(ui) => color_for_ui(ui),
+    pub fn color_for(element: ThemeElement) -> Style {
+        use ThemeElement::*;
+        match element {
+            Text(text) => color_for_text(text),
+            Ui(ui) => color_for_ui(ui),
         }
     }
 }
 
-fn color_for_text(element: TextElement) -> style::Color {
-    use style::Color::*;
+fn color_for_text(element: TextElement) -> Style {
+    use TextElement::*;
     match element {
-        TextElement::Identifier => White,
-        TextElement::Keyword => Red,
-        TextElement::String => Blue,
-        TextElement::Comment => todo!(),
-        TextElement::Documentation => todo!(),
-        TextElement::Number => todo!(),
-        TextElement::Type => todo!(),
-        TextElement::Definition => todo!(),
-        TextElement::Boolean => todo!(),
-        TextElement::Special => todo!(),
+        Identifier => Style {
+            fg: Color::White,
+            bg: None,
+        },
+        Keyword => Style {
+            fg: Color::Red,
+            bg: None,
+        },
+        String => Style {
+            fg: Color::Blue,
+            bg: None,
+        },
+        Comment => todo!(),
+        Documentation => todo!(),
+        Number => todo!(),
+        Type => todo!(),
+        Definition => todo!(),
+        Boolean => todo!(),
+        Special => todo!(),
     }
 }
 
-fn color_for_ui(element: UiElement) -> style::Color {
+fn color_for_ui(element: UiElement) -> Style {
+    use UiElement::*;
     match element {
-        UiElement::Background => todo!(),
-        UiElement::SearchMatches => todo!(),
-        UiElement::CurrentMatch => todo!(),
-        UiElement::Modes(mode) => match mode {
-            Mode::Normal => todo!(),
-            Mode::Insert => todo!(),
-            Mode::Visual => todo!(),
+        Background => todo!(),
+        ModeNormal => todo!(),
+        ModeInsert => todo!(),
+        ModeVisual => todo!(),
+        SearchMatches => Style {
+            fg: Color::White,
+            bg: Some(Color::Blue),
         },
-        UiElement::StatusBar => todo!(),
-        UiElement::StatusBarInactive => todo!(),
+        CurrentMatch => Style {
+            fg: Color::White,
+            bg: Some(Color::Red),
+        },
+        StatusBar => todo!(),
+        StatusBarInactive => todo!(),
     }
 }

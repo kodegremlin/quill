@@ -133,11 +133,11 @@ impl Row {
     }
 
     pub fn buffer(&self) -> &str {
-        &self.buffer.as_str()
+        self.buffer.as_str()
     }
 
     pub fn render_text(&self) -> &str {
-        &self.render.as_str()
+        self.render.as_str()
     }
 
     /// Returns the character at the provided index.

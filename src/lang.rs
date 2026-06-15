@@ -9,19 +9,14 @@ pub struct LanguageMeta {
     pub indent: &'static str,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Language {
+    #[default]
     PlainText,
     Rust,
     Go,
     CLang,
     Java,
-}
-
-impl Default for Language {
-    fn default() -> Self {
-        Self::PlainText
-    }
 }
 
 impl Language {

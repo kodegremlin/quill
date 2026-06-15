@@ -7,8 +7,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug)]
 /// Errors the terminal can encounter.
 pub enum Error {
-    IoError(io::Error),
-    SystemTimeError(SystemTimeError),
+    Io(io::Error),
+    SystemTime(SystemTimeError),
     TooSmallWindow(usize, usize),
     UnknownWindowSize,
     NotUtf8Input(Vec<u8>),
@@ -19,9 +19,9 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Error::*;
         match self {
-            SystemTimeError(err) => write!(f, "{}", err),
+            SystemTime(err) => write!(f, "{}", err),
 
-            IoError(err) => write!(f, "{}", err),
+            Io(err) => write!(f, "{}", err),
 
             TooSmallWindow(width, height) => write!(
                 f,
@@ -44,12 +44,12 @@ impl fmt::Display for Error {
 
 impl From<io::Error> for Error {
     fn from(value: io::Error) -> Self {
-        Error::IoError(value)
+        Error::Io(value)
     }
 }
 
 impl From<SystemTimeError> for Error {
     fn from(value: SystemTimeError) -> Self {
-        Error::SystemTimeError(value)
+        Error::SystemTime(value)
     }
 }

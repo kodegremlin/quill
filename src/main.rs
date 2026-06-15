@@ -4,6 +4,7 @@ mod color;
 mod errors;
 mod lang;
 mod row;
+mod terminal;
 
 fn main() {
     let row = Row::new("char with \t tab. \twith\t ¬˚˙¬˚∆ƒß");
