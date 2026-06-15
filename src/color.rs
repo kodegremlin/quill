@@ -40,6 +40,16 @@ pub struct Style {
     pub bg: Option<Color>,
 }
 
+impl Style {
+    pub const fn new(fg: Color) -> Self {
+        Self { fg, bg: None }
+    }
+
+    pub const fn with_bg(fg: Color, bg: Color) -> Self {
+        Self { fg, bg: Some(bg) }
+    }
+}
+
 pub struct Theme;
 
 impl Theme {
@@ -55,18 +65,9 @@ impl Theme {
 fn color_for_text(element: TextElement) -> Style {
     use TextElement::*;
     match element {
-        Identifier => Style {
-            fg: Color::White,
-            bg: None,
-        },
-        Keyword => Style {
-            fg: Color::Red,
-            bg: None,
-        },
-        String => Style {
-            fg: Color::Blue,
-            bg: None,
-        },
+        Identifier => Style::new(Color::White),
+        String => Style::new(Color::Blue),
+        Keyword => Style::new(Color::Red),
         Comment => todo!(),
         Documentation => todo!(),
         Number => todo!(),
@@ -84,14 +85,8 @@ fn color_for_ui(element: UiElement) -> Style {
         ModeNormal => todo!(),
         ModeInsert => todo!(),
         ModeVisual => todo!(),
-        SearchMatches => Style {
-            fg: Color::White,
-            bg: Some(Color::Blue),
-        },
-        CurrentMatch => Style {
-            fg: Color::White,
-            bg: Some(Color::Red),
-        },
+        SearchMatches => Style::with_bg(Color::White, Color::Red),
+        CurrentMatch => Style::with_bg(Color::White, Color::Blue),
         StatusBar => todo!(),
         StatusBarInactive => todo!(),
     }
