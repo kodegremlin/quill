@@ -3,7 +3,7 @@
 /* TODO: document the code and for simple functions just introduce what
 the function does */
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, bail};
 use std::ops::{Index, Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
 use unicode_width::UnicodeWidthChar;
 
@@ -112,7 +112,7 @@ impl Row {
             } else {
                 // Control characters are valid UTF-8 but they should not appear
                 // in text and we won't be handling them.
-                return Err(anyhow!("Control character in text: {}", ch));
+                bail!("Control character in text: {}", ch);
             }
             num_chars += 1;
         }
