@@ -2,7 +2,7 @@
 
 use crate::row::Row;
 
-/// Where the cursor at/was-at depending on the concerned diff.
+/// Where the cursor is at/was-at depending on the concerned diff.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CursorPosition {
     pub col: usize,
