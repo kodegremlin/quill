@@ -1,6 +1,7 @@
 use crate::row::Row;
 
 mod color;
+mod diff;
 mod lang;
 mod row;
 mod terminal;

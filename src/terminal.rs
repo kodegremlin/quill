@@ -74,6 +74,7 @@ pub enum Key {
 
     Delete,
     Esc,
+    Tab,
     Enter,
 
     Unknown,
@@ -166,7 +167,8 @@ impl Terminal {
             KeyCode::PageDown => Key::PageDown,
 
             KeyCode::Delete => Key::Delete,
-            KeyCode::Esc => Key::Esc,
+            KeyCode::Esc => Key::Esc, // TODO: make ESC a no op when there is no follow up key.
+            KeyCode::Tab => Key::Tab,
             KeyCode::Enter => Key::Enter,
 
             _ => Key::Unknown,

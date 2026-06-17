@@ -201,7 +201,7 @@ impl Row {
     pub fn truncate(&mut self, idx: usize) {
         if idx < self.len() {
             let b_idx = self.char_to_byte_idx(idx);
-            self.truncate(b_idx);
+            self.buffer.truncate(b_idx);
             self.update_render().unwrap();
         }
     }
