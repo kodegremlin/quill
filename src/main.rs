@@ -2,6 +2,7 @@ use crate::row::Row;
 
 mod color;
 mod diff;
+mod history;
 mod lang;
 mod row;
 mod terminal;
