@@ -1,5 +1,6 @@
 use crate::row::Row;
 
+mod buffer;
 mod color;
 mod diff;
 mod history;

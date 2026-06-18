@@ -39,7 +39,7 @@ impl EditDiff {
             }
             DeleteChar { at, .. } => {
                 rows[at.row].delete_char(at.col);
-                cp::new(at.col - 1, at.row)
+                cp::new(at.col.saturating_sub(1), at.row)
             }
             Insert { at, text } => {
                 rows[at.row].insert_str(at.col, text);
