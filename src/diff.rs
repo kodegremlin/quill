@@ -84,8 +84,8 @@ impl EditDiff {
     pub fn inverse(&self) -> Self {
         use EditDiff::*;
         match *self {
-            InsertChar { at, ch } => DeleteChar { at: at, ch: ch },
-            DeleteChar { at, ch } => InsertChar { at: at, ch: ch },
+            InsertChar { at, ch } => DeleteChar { at, ch },
+            DeleteChar { at, ch } => InsertChar { at, ch },
             Insert { at, ref text } => Remove {
                 at,
                 text: text.clone(),
