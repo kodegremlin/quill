@@ -23,7 +23,6 @@ pub enum EditDiff {
     Remove { at: CursorPosition, text: String },
     Append { row: usize, text: String },
     Truncate { row: usize, removed: String },
-    NewLine,
     InsertLine { row: usize, text: String },
     DeleteLine { row: usize, text: String },
 }
@@ -63,10 +62,6 @@ impl EditDiff {
                 rows[*row].truncate(len - count);
                 cp::new(len - count, *row)
             }
-            NewLine => {
-                rows.push(Row::empty());
-                cp::new(0, rows.len() - 1)
-            }
             InsertLine { row, text } => {
                 rows.insert(
                     *row,
@@ -86,7 +81,7 @@ impl EditDiff {
         }
     }
 
-    pub fn inverse(&self, rows: &[Row]) -> Self {
+    pub fn inverse(&self) -> Self {
         use EditDiff::*;
         match *self {
             InsertChar { at, ch } => DeleteChar { at: at, ch: ch },
@@ -107,13 +102,6 @@ impl EditDiff {
                 row,
                 text: removed.clone(),
             },
-            NewLine => {
-                let last_row = rows.len() - 1;
-                DeleteLine {
-                    row: last_row,
-                    text: String::new(),
-                }
-            }
             InsertLine { row, ref text } => DeleteLine {
                 row,
                 text: text.clone(),

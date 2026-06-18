@@ -56,7 +56,7 @@ impl History {
         let (cursor, redraw_idx) = self.entries[self.index].iter().rev().fold(
             (CursorPosition::new(0, 0), usize::MAX),
             |(_, redraw_idx), diff| {
-                let cursor = diff.inverse(rows).apply(rows);
+                let cursor = diff.inverse().apply(rows);
                 (cursor, redraw_idx.min(cursor.row))
             },
         );
