@@ -48,7 +48,7 @@ impl<'a> Iterator for Lines<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|x| x.buffer())
+        self.0.next().map(|x| x.raw_text())
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

@@ -103,28 +103,33 @@ impl Drop for TerminalGuard {
     }
 }
 
+/// The current terminal dimensions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Size {
     pub width: u16,
     pub height: u16,
 }
 
+/// A Terminal running in raw mode.
 pub struct Terminal {
     _guard: TerminalGuard,
 }
 
 impl Terminal {
+    /// Enters raw mode and initializes the terminal.
     pub fn new() -> Result<Self> {
         Ok(Self {
             _guard: TerminalGuard::enter()?,
         })
     }
 
+    /// Returns the current terminal size.
     pub fn size() -> Result<Size> {
         let (width, height) = terminal::size()?;
         Ok(Size { width, height })
     }
 
+    /// Blocks until the next supported terminal event is received.
     pub fn read_event(&self) -> Result<Event> {
         loop {
             let event = crossterm::event::read()?;

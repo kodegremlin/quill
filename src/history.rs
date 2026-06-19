@@ -13,6 +13,7 @@ const MAX_ENTRIES: usize = 1000;
 
 pub type Edits = Vec<EditDiff>;
 
+/// A linear undo/redo history.
 #[derive(Debug, Default, Clone)]
 pub struct History {
     index: usize,
@@ -21,6 +22,7 @@ pub struct History {
 }
 
 impl History {
+    /// Commits the current edit to history.
     pub fn queue_ongoing_edits(&mut self) -> bool {
         if self.ongoing.is_empty() {
             return false;
@@ -42,10 +44,12 @@ impl History {
         true
     }
 
+    /// Adds the provided diff to the current edit.
     pub fn push_diff(&mut self, diff: EditDiff) {
         self.ongoing.push(diff);
     }
 
+    /// Undoes the most recent edit.
     pub fn undo(&mut self, rows: &mut Vec<Row>) -> Option<(CursorPosition, usize, bool)> {
         let edited = self.queue_ongoing_edits();
         if self.index == 0 {
@@ -63,6 +67,7 @@ impl History {
         Some((cursor, redraw_idx, edited))
     }
 
+    /// Redoes the next edit.
     pub fn redo(&mut self, rows: &mut Vec<Row>) -> Option<(CursorPosition, usize, bool)> {
         let edited = self.queue_ongoing_edits();
         if self.index == self.entries.len() {

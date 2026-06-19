@@ -2,7 +2,7 @@
 
 use crate::row::Row;
 
-/// Where the cursor is at/was-at depending on the concerned diff.
+/// The cursor's position within the text buffer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CursorPosition {
     pub col: usize,
@@ -15,6 +15,7 @@ impl CursorPosition {
     }
 }
 
+/// A reversible edit operation recorded in the undo history.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EditDiff {
     InsertChar { at: CursorPosition, ch: char },
@@ -28,6 +29,7 @@ pub enum EditDiff {
 }
 
 impl EditDiff {
+    /// Applies the edit and returns the resulting cursor position.
     pub fn apply(&self, rows: &mut Vec<Row>) -> CursorPosition {
         use CursorPosition as cp;
         use EditDiff::*;
@@ -49,7 +51,7 @@ impl EditDiff {
             Remove { at, text } => {
                 let start_x = at.col - text.chars().count();
                 rows[at.row].remove(start_x, at.col);
-                cp::new(start_x, at.col)
+                cp::new(start_x, at.row)
             }
             Append { row, text } => {
                 let len = rows[*row].len();
@@ -70,17 +72,25 @@ impl EditDiff {
                 cp::new(0, *row)
             }
             DeleteLine { row, .. } => {
-                debug_assert!(*row > 0);
                 if *row == rows.len() - 1 {
                     rows.pop();
                 } else {
                     rows.remove(*row);
                 }
-                cp::new(rows[*row - 1].len(), *row - 1)
+                if *row == 0 {
+                    cp::new(0, 0)
+                } else {
+                    cp::new(rows[*row - 1].len(), *row - 1)
+                }
             }
         }
     }
 
+    /* FIXME: Remove cloning behaviour of the function; can be optimized by the
+    function taking a mutable vec of rows and owning the operation like apply.
+    Then we have undo redo functions instead of apply and inverse. */
+
+    /// Returns the inverse of this edit.
     pub fn inverse(&self) -> Self {
         use EditDiff::*;
         match *self {

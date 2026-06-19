@@ -46,6 +46,9 @@ impl Row {
         Ok(row)
     }
 
+    /// Returns the length of the `Row` indices unless, there are no multibyte
+    /// characters in which case indices will be empty, so buffer length will
+    /// be returned.
     pub fn len(&self) -> usize {
         if self.indices.is_empty() {
             self.buffer.len()
@@ -67,6 +70,9 @@ impl Row {
         }
     }
 
+    /// Converts a UTF-8 byte index to a character index.
+    ///
+    /// `byte_idx` must be on a valid UTF-8 character boundary.
     pub fn byte_to_char_idx(&self, byte_idx: usize) -> usize {
         if self.indices.is_empty() {
             return byte_idx;
@@ -128,10 +134,12 @@ impl Row {
         Ok(())
     }
 
-    pub fn buffer(&self) -> &str {
+    /// Returns the row's source text.
+    pub fn raw_text(&self) -> &str {
         self.buffer.as_str()
     }
 
+    /// Returns the row's rendered text.
     pub fn render_text(&self) -> &str {
         self.render.as_str()
     }
@@ -151,6 +159,7 @@ impl Row {
         self[idx..].chars().next()
     }
 
+    /// Returns the rendered column corresponding to `cx`.
     pub fn rx_from_cx(&self, cx: usize) -> usize {
         self[..cx].chars().fold(0, |rx, ch| {
             if ch == '\t' {
@@ -161,6 +170,7 @@ impl Row {
         })
     }
 
+    /// Inserts the given character at the given index.
     pub fn insert_char(&mut self, idx: usize, ch: char) {
         if self.len() <= idx {
             self.buffer.push(ch);
@@ -171,6 +181,7 @@ impl Row {
         self.update_render().unwrap();
     }
 
+    /// Inserts the given str at the given index.
     pub fn insert_str<S: AsRef<str>>(&mut self, idx: usize, strs: S) {
         if self.len() <= idx {
             self.buffer.push_str(strs.as_ref());
@@ -181,6 +192,7 @@ impl Row {
         self.update_render().unwrap();
     }
 
+    /// Deletes a character at the given index.
     pub fn delete_char(&mut self, idx: usize) {
         if idx < self.len() {
             let b_idx = self.char_to_byte_idx(idx);
@@ -189,6 +201,7 @@ impl Row {
         }
     }
 
+    /// Appends the given string to the buffer and updates the renderer.
     pub fn append<S: AsRef<str>>(&mut self, strs: S) {
         let strs = strs.as_ref();
         if strs.is_empty() {
@@ -198,6 +211,7 @@ impl Row {
         self.update_render().unwrap();
     }
 
+    /// Truncates the items till the provided index.
     pub fn truncate(&mut self, idx: usize) {
         if idx < self.len() {
             let b_idx = self.char_to_byte_idx(idx);
@@ -214,6 +228,7 @@ impl Row {
         self.update_render().unwrap();
     }
 
+    /// Removes items from the buffer within the specified indices.
     pub fn remove(&mut self, start: usize, end: usize) {
         if start < end {
             let b_start = self.char_to_byte_idx(start);
