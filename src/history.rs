@@ -1,6 +1,6 @@
 #![allow(dead_code)] // FIXME: remove after module in use.
 
-use std::{collections::VecDeque, mem, usize};
+use std::{collections::VecDeque, mem};
 
 use crate::{
     diff::{CursorPosition, EditDiff},
