@@ -6,7 +6,7 @@ use std::path::Path;
 pub struct LanguageMeta {
     pub extensions: &'static [&'static str],
     pub name: &'static str,
-    pub indent: &'static str,
+    pub indent: Indent,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -17,6 +17,12 @@ pub enum Language {
     Go,
     CLang,
     Java,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Indent {
+    FourSpaces(&'static str),
+    Tab,
 }
 
 impl Language {
@@ -39,14 +45,14 @@ impl Language {
         }
     }
 
-    fn indent(self) -> &'static str {
+    pub fn indent(self) -> Indent {
         match self {
-            Language::Go => "\t",
-            _ => "    ",
+            Language::Go => Indent::Tab,
+            _ => Indent::FourSpaces("    "),
         }
     }
 
-    fn name(self) -> &'static str {
+    pub fn name(self) -> &'static str {
         match self {
             Language::PlainText => "plain",
             Language::Rust => "rust",
