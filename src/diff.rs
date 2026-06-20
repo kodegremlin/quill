@@ -48,10 +48,12 @@ impl EditDiff {
                 let len = text.chars().count();
                 cp::new(at.col + len, at.row)
             }
+            /*  NOTE: [Remove] has been changed a few times here and there, so if we see
+            any panics due to cursor calculation during undo/redo, check here.*/
             Remove { at, text } => {
-                let start_x = at.col - text.chars().count();
-                rows[at.row].remove(start_x, at.col);
-                cp::new(start_x, at.row)
+                let end_x = at.col + text.chars().count();
+                rows[at.row].remove(at.col, end_x);
+                cp::new(at.col, at.row)
             }
             Append { row, text } => {
                 let len = rows[*row].len();
