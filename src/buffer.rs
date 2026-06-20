@@ -1,6 +1,7 @@
 #![allow(dead_code)] // ! FIXME: remove this when module in use
 
 use std::{
+    cmp,
     fs::File,
     io::{self, BufRead},
     path::{Path, PathBuf},
@@ -229,7 +230,7 @@ impl TextBuffer {
             // should not move.
             return;
         }
-        self.move_cursor_one(CursorDir::Right);
+        self.step(CursorDir::Right);
         self.delete_char();
     }
 
@@ -257,10 +258,6 @@ impl TextBuffer {
                 text: truncated,
             });
         }
-    }
-
-    pub fn move_cursor_one(&mut self, _dir: CursorDir) {
-        todo!()
     }
 
     pub fn delete_word(&mut self) {
@@ -383,6 +380,149 @@ impl TextBuffer {
             self.modified = false;
             self.inserted_undo = true;
         }
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum CharKind {
+    Punctuation,
+    Space,
+    Identifier,
+}
+
+impl CharKind {
+    pub fn from_char(ch: char) -> Self {
+        if ch.is_ascii_whitespace() {
+            CharKind::Space
+        } else if ch == '_' || ch.is_ascii_alphanumeric() {
+            CharKind::Identifier
+        } else {
+            CharKind::Punctuation
+        }
+    }
+}
+
+impl TextBuffer {
+    pub fn step(&mut self, direction: CursorDir) {
+        match direction {
+            CursorDir::Up => self.row_idx = self.row_idx.saturating_sub(1),
+            CursorDir::Down => {
+                if self.row_idx < self.rows.len() {
+                    self.row_idx += 1;
+                }
+            }
+            CursorDir::Left => {
+                if self.col_idx > 0 {
+                    self.col_idx -= 1;
+                } else if self.row_idx > 0 {
+                    self.row_idx -= 1;
+                    self.col_idx = self.rows[self.row_idx].len();
+                }
+            }
+            CursorDir::Right => {
+                if self.row_idx < self.rows.len() {
+                    let len = self.rows[self.row_idx].len();
+
+                    if self.col_idx < len {
+                        self.col_idx += 1;
+                    } else if self.col_idx >= len {
+                        self.row_idx += 1;
+                        self.col_idx = 0;
+                    }
+                }
+            }
+        }
+        // snap cursor to the end of line when moving up/down from a longer line.
+        let len = self.rows.get(self.row_idx).map(|r| r.len()).unwrap_or(0);
+        if self.col_idx > len {
+            self.col_idx = len;
+        }
+    }
+
+    // TODO: document the panic behaviour
+    pub fn jump_page_up_down(&mut self, direction: CursorDir, row_off: usize, num_rows: usize) {
+        self.row_idx = match direction {
+            CursorDir::Up => row_off,
+            CursorDir::Down => cmp::min(row_off + num_rows - 1, self.rows.len()),
+            _ => unreachable!(),
+        };
+        for _ in 0..num_rows {
+            self.step(direction);
+        }
+    }
+
+    pub fn jump_to_edge(&mut self, direction: CursorDir) {
+        match direction {
+            CursorDir::Left => self.col_idx = 0,
+            CursorDir::Right => {
+                if self.row_idx < self.rows.len() {
+                    self.col_idx = self.rows[self.row_idx].len();
+                }
+            }
+            CursorDir::Up => self.row_idx = 0,
+            CursorDir::Down => self.row_idx = self.rows.len(),
+        }
+    }
+
+    pub fn step_by_word(&mut self, direction: CursorDir) {
+        // Helper to safely fetch the CharKind at the current cursor position.
+        let get_kind = |buf: &Self| -> CharKind {
+            buf.rows
+                .get(buf.row_idx)
+                .and_then(|r| r.chat_at_checked(buf.col_idx))
+                .map(CharKind::from_char)
+                .unwrap_or(CharKind::Space) // Treat EOF/EOL as Space.
+        };
+        let mut prev = get_kind(self);
+        loop {
+            self.step(direction);
+
+            // did we hit the absolute start or end of the file?
+            if (self.row_idx == 0 && self.col_idx == 0) || self.row_idx == self.rows.len() {
+                return;
+            }
+            let curr = get_kind(self);
+            match direction {
+                CursorDir::Left => {
+                    // when moving
+                    if Self::is_word_boundary(curr, prev) {
+                        return;
+                    }
+                }
+                CursorDir::Right => {
+                    if Self::is_word_boundary(prev, curr) {
+                        return;
+                    }
+                }
+                _ => {} // up/down are invalid so do nothing.
+            }
+            prev = curr
+        }
+    }
+
+    pub fn jump_paragraphs(&mut self, direction: CursorDir) {
+        debug_assert!(direction != CursorDir::Left && direction != CursorDir::Right);
+        loop {
+            self.step(direction);
+            if self.row_idx == 0
+                || self.row_idx == self.rows.len()
+                || self.rows[self.row_idx - 1].raw_text().is_empty()
+                    && !self.rows[self.row_idx].raw_text().is_empty()
+            {
+                break;
+            }
+        }
+    }
+
+    fn is_word_boundary(left: CharKind, right: CharKind) -> bool {
+        use CharKind::*;
+        matches!(
+            (left, right),
+            (Space, Identifier)
+                | (Space, Punctuation)
+                | (Punctuation, Identifier)
+                | (Identifier, Punctuation)
+        )
     }
 }
 
