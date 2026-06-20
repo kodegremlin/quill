@@ -1,7 +1,10 @@
 #![allow(dead_code)] // * FIXME: remove after the project uses this module.
 
 use anyhow::{Result, bail};
-use std::ops::{Index, Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
+use std::{
+    mem,
+    ops::{Index, Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive},
+};
 use unicode_width::UnicodeWidthChar;
 
 /// Number of spaces a tab takes.
@@ -142,6 +145,19 @@ impl Row {
     /// Returns the row's rendered text.
     pub fn render_text(&self) -> &str {
         self.render.as_str()
+    }
+
+    /// Extracts the owned text buffer, leaving an empty string in its place.
+    ///
+    /// This method is used to steal the underlying heap allocation without
+    /// consuming the `Row` itself. It is particularly useful during deletion
+    /// or concatenation operations where the `Row` is about to be discarded,
+    /// allowing us to reuse the memory and avoid an expensive `.clone()` or
+    /// `.to_owned()` call.
+    ///
+    /// After calling this, the `Row`'s text buffer will be empty.
+    pub fn take_buffer(&mut self) -> String {
+        mem::take(&mut self.buffer)
     }
 
     /// Returns the character at the provided index.
