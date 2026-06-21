@@ -1,1 +1,2 @@
+struct_lit_width = 40
 imports_granularity = "Module"

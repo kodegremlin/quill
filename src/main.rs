@@ -3,8 +3,10 @@ use crate::row::Row;
 mod buffer;
 mod color;
 mod diff;
+mod highlight;
 mod history;
 mod lang;
+mod renderer;
 mod row;
 mod terminal;
 
