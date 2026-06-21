@@ -1,15 +1,22 @@
-## Quill
+# Quill
 A lightweight code editor, built because I wanted to learn how to build one.
 
 ## Status
 Still being built, trying to get text rendering and highlights to work before 
 adding some neovim like features, such as Modes and completions.
 
-## Current Roadmap
-1. (will write later)
+## Roadmap
+1. Syntax Highlighting
 
-## Future Features 
-1. We can add a viewport where only part of the buffer is ever rendered which can
-help with performance by giving a (col_off, row_off) offset cutoff which is what's being
-rendered, and the other text can be rendered on demand when it comes within the
-viewport.
+## Features in Current Scope (Not in any particular order).
+1. Implement a efficient span based syntax highlighting.
+    - After a basic span based highlighter, integrate it with tree-sitter for better highlighting.
+2. Basic vim modes and operations they control.
+3. Auto completion:
+    - First, just provide completion based on history, without necessarily a popup but rather a text replacement type thing.
+    - After it works, we can introduce popups (or maybe do it together only, we'll see).
+    - Second, after the history-buffer based completion we can see if the integration with tree-sitter can help in providing some smart syntax based completion even if relying on history. 
+
+## Future Features (In no particular order).
+1. If the language is recognised, provide smart code traversal based on semantic meaning (maybe tree-sitter helps with this).
+2. See if core vim grammar can also be introduced if it doesn't introduce too much complexity.
