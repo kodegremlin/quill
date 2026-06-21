@@ -3,12 +3,12 @@
 use std::{
     cmp,
     fs::File,
-    io::{self, BufRead},
+    io::{self, BufRead, Write},
     path::{Path, PathBuf},
     slice,
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::{
     diff::{CursorPosition, EditDiff},
@@ -94,7 +94,7 @@ pub struct TextBuffer {
     modified: bool,
 
     /// Language which current buffer belongs to.
-    lang: Language,
+    pub lang: Language,
 
     /// History per undo point for undo/redo.
     history: History,
@@ -150,6 +150,30 @@ impl TextBuffer {
         Ok(buf)
     }
 
+    pub fn save(&mut self) -> Result<String> {
+        self.insert_undo_point();
+
+        let Some(fp) = &self.file else {
+            return Ok(String::new());
+        };
+        let file = File::create(&fp.path).context("Could not save")?;
+
+        let mut writer = io::BufWriter::new(file);
+        let mut bytes = 0;
+
+        for line in self.rows.iter() {
+            let text = line.raw_text();
+            // check to see if using write_all() directly affects performance
+            // for large files.
+            writeln!(writer, "{}", text).context("Could not write to file")?;
+            bytes += text.len() + 1;
+        }
+        writer.flush().context("Could not flush to file")?;
+        self.undo_count = 0;
+        self.modified = false;
+        Ok(format!("{} bytes written to {}", bytes, fp.display))
+    }
+
     fn set_redraw_idx(&mut self, line: usize) {
         if let Some(row_idx) = self.redraw_from {
             if row_idx <= line {
@@ -162,6 +186,43 @@ impl TextBuffer {
     fn set_cursor(&mut self, cursor: CursorPosition) {
         self.col_idx = cursor.col;
         self.row_idx = cursor.row;
+    }
+
+    pub fn rows(&self) -> &[Row] {
+        &self.rows
+    }
+
+    pub fn row_idx(&self) -> usize {
+        self.row_idx
+    }
+
+    pub fn set_unnamed(&mut self) {
+        self.file = None
+    }
+
+    pub fn filename(&self) -> &str {
+        self.file
+            .as_ref()
+            .map(|fp| fp.display.as_str())
+            .unwrap_or("[No Name]")
+    }
+
+    pub fn modified(&self) -> bool {
+        self.undo_count != 0 || self.modified
+    }
+
+    pub fn lines(&self) -> Lines<'_> {
+        Lines(self.rows.iter())
+    }
+
+    pub fn set_file<S: Into<String>>(&mut self, path: S) {
+        let fp = FilePath::from_string(path);
+        self.lang = Language::detect(&fp.path);
+        self.file = Some(fp);
+    }
+
+    pub fn is_scratch(&self) -> bool {
+        self.file.is_none() && self.rows.len() == 1 && self.rows[0].len() == 0
     }
 }
 
@@ -380,6 +441,45 @@ impl TextBuffer {
             self.modified = false;
             self.inserted_undo = true;
         }
+    }
+
+    fn after_undo_redo(&mut self, state: Option<(CursorPosition, usize, bool)>) -> bool {
+        match state {
+            Some((cursor, redraw_idx, _)) => {
+                self.set_cursor(cursor);
+                self.set_redraw_idx(redraw_idx);
+                true
+            }
+            None => false,
+        }
+    }
+
+    pub fn undo(&mut self) -> bool {
+        let state = self.history.undo(&mut self.rows);
+        if let Some((_, _, edited)) = state {
+            // If edited is true, it means that undo target is the ongoing change.
+            // In this case, undo point is not consumed and undo count should not
+            // be decremented.
+            if !edited {
+                self.undo_count = self.undo_count.saturating_sub(1);
+            }
+            self.modified = false;
+        };
+        self.after_undo_redo(state)
+    }
+
+    pub fn redo(&mut self) -> bool {
+        let state = self.history.redo(&mut self.rows);
+        if let Some((_, _, edited)) = state {
+            // If edited is true, it means that redo target is the ongoing change.
+            // In this case, undo point is not consumed and undo count should not
+            // be incremented.
+            if !edited {
+                self.undo_count = self.undo_count.saturating_add(1);
+            }
+            self.modified = false;
+        };
+        self.after_undo_redo(state)
     }
 }
 
