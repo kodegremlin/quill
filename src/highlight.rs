@@ -7,16 +7,17 @@ use crate::{
 
 #[derive(Debug)]
 struct SyntaxHighlight {
+    block_comment: Option<(&'static str, &'static str)>,
+    line_comment: Option<&'static str>,
     builtin_types: &'static [&'static str],
     keywords: &'static [&'static str],
-    control_statment: &'static [&'static str],
+    control_statement: &'static [&'static str],
     language: Language,
     string_quotes: &'static [char],
     number: bool,
     hex_number: bool,
     bin_number: bool,
     num_delim: Option<char>,
-    comment: Option<&'static str>,
     character: bool,
     bool_constants: &'static [&'static str],
     special_vars: &'static [&'static str],
@@ -26,14 +27,15 @@ struct SyntaxHighlight {
 const PLAIN_SYNTAX: SyntaxHighlight = SyntaxHighlight {
     builtin_types: &[],
     keywords: &[],
-    control_statment: &[],
+    control_statement: &[],
     language: Language::PlainText,
     string_quotes: &[],
     number: false,
     hex_number: false,
     bin_number: false,
     num_delim: None,
-    comment: None,
+    line_comment: None,
+    block_comment: None,
     character: false,
     bool_constants: &[],
     special_vars: &[],
@@ -51,7 +53,7 @@ const RUST_SYNTAX: SyntaxHighlight = SyntaxHighlight {
         "mod", "move", "mut", "pub", "ref", "Self", "static", "struct", "super", "trait", "type",
         "union", "unsafe", "use", "where",
     ],
-    control_statment: &[
+    control_statement: &[
         "break", "continue", "else", "for", "if", "in", "loop", "match", "return", "while",
     ],
     language: Language::Rust,
@@ -60,7 +62,8 @@ const RUST_SYNTAX: SyntaxHighlight = SyntaxHighlight {
     hex_number: true,
     bin_number: true,
     num_delim: Some('_'),
-    comment: Some("//"),
+    block_comment: Some(("/*", "*/")),
+    line_comment: Some("//"),
     character: true,
     bool_constants: &["true", "false"],
     special_vars: &["self"],
@@ -97,13 +100,13 @@ enum ParseStep {
     Break,
 }
 
-fn is_separator(ch: char) -> bool {
+fn is_sep(ch: char) -> bool {
     ch.is_ascii_whitespace() || (ch.is_ascii_whitespace() && ch.ne(&'_')) || ch.ne(&'\0')
 }
 
 #[derive(Debug)]
 struct Highlighter<'a> {
-    syntax: &'a SyntaxHighlight,
+    rules: &'a SyntaxHighlight,
     active_quote: Option<char>,
     in_block_comment: bool,
     last_element: TextElement,
@@ -121,7 +124,7 @@ struct LexResult {
 impl<'a> Highlighter<'a> {
     fn new<'b: 'a>(syntax: &'b SyntaxHighlight) -> Self {
         Self {
-            syntax,
+            rules: syntax,
             active_quote: None,
             in_block_comment: false,
             last_element: TextElement::Normal,
@@ -133,8 +136,8 @@ impl<'a> Highlighter<'a> {
 
     /// Consume a specific number of characters, calculates their byte width,
     /// and updates the state machine's previous character records.
-    fn consume_chars(&mut self, input: &str, element: TextElement, char_len: usize) -> LexResult {
-        debug_assert!(char_len > 0);
+    fn consume_chars(&mut self, input: &str, element: TextElement, ch_count: usize) -> LexResult {
+        debug_assert!(ch_count > 0);
         debug_assert!(!input.is_empty());
 
         self.last_element = element;
@@ -143,20 +146,24 @@ impl<'a> Highlighter<'a> {
         let mut last_char = '\0';
 
         for (i, (byte_idx, ch)) in input.char_indices().enumerate() {
-            if i == char_len - 1 {
+            if i == ch_count - 1 {
                 last_char = ch;
             }
-            if i == char_len {
+            if i == ch_count {
                 byte_len = byte_idx;
                 break;
             }
         }
         self.last_char = last_char;
-        LexResult { element, byte_len, char_len }
+        LexResult {
+            element,
+            byte_len,
+            char_len: ch_count,
+        }
     }
 
     /// A highly lightweight version of `consume_chars` for a single character.
-    fn consume_one(&mut self, ch: char, element: TextElement) -> LexResult {
+    fn consume_char(&mut self, ch: char, element: TextElement) -> LexResult {
         self.last_element = element;
         self.last_char = ch;
 
@@ -165,6 +172,251 @@ impl<'a> Highlighter<'a> {
             byte_len: ch.len_utf8(),
             char_len: 1,
         }
+    }
+
+    fn highlight_block_comment(
+        &mut self, start: &str, end: &str, ch: char, input: &str,
+    ) -> Option<LexResult> {
+        // If we are currently inside a quote, ignore comment syntax.
+        // e.g., let s = "/* this is just a string */";
+        if self.active_quote.is_some() {
+            return None;
+        }
+        let comment_delim = if self.in_block_comment && input.starts_with(end) {
+            // we found `*/`. Turn off the comment state.
+            self.in_block_comment = false;
+            end
+        } else if !self.in_block_comment && input.starts_with(start) {
+            // we found `/*`. Turn on the comment state.
+            self.in_block_comment = true;
+            start
+        } else {
+            // we are neither starting nor ending a comment block on this exact
+            // character.
+            // If the state machine is trapped inside a comment, consume it.
+            // Otherwise bail out.
+            return if self.in_block_comment {
+                Some(self.consume_char(ch, TextElement::Comment))
+            } else {
+                None
+            };
+        };
+        // if we reached here it means we just toggled a state using delimiter
+        // (`/*` or `*/`). We must consume the entire delimiter at once.
+        // e.g., `/*/` is an edge case that this solves, if we consume one by
+        // one, the scanner sees `/*` and then in the next iteration sees `*/`.
+        Some(self.consume_chars(input, TextElement::Comment, comment_delim.chars().count()))
+    }
+
+    fn highlight_line_comment(&mut self, leader: &str, input: &str) -> Option<LexResult> {
+        // If we are currently inside a quote, ignore comment syntax.
+        // e.g., let url = "https://google.com";
+        //
+        // Because our lexer processes the buffer line-by-line, a line comment
+        // simply consumes every single character left in the current `input`
+        // slice.
+        if self.active_quote.is_none() && input.starts_with(leader) {
+            let remaining_chars = input.chars().count();
+            return Some(self.consume_chars(input, TextElement::Comment, remaining_chars));
+        }
+        None
+    }
+
+    fn highlight_string(&mut self, ch: char) -> Option<LexResult> {
+        // we are inside a string; check if the current character matches the quote
+        // that opened it.
+        if let Some(active_quote) = self.active_quote {
+            // check if it is escaped; if `last_char` was a backslash, this is just
+            // a literal quote inside the text, NOT the end of the string.
+            if ch == active_quote {
+                if self.last_char != '\\' {
+                    self.active_quote = None;
+                }
+            }
+            return Some(self.consume_char(ch, TextElement::String));
+        } else if self.rules.string_quotes.contains(&ch) {
+            // we found a brand new opening quote (`"` or `'`).
+            // Trap the lexer inside the string mode.
+            self.active_quote = Some(ch);
+            return Some(self.consume_char(ch, TextElement::String));
+        }
+        // Not a string, not inside one, skip.
+        None
+    }
+
+    fn highlight_ident(&mut self, input: &str) -> Option<LexResult> {
+        // Find the word boundary. We iterate through characters until we hit a
+        // space or punctuation.
+        let mut char_count = 0;
+        let mut byte_len = 0;
+
+        for ch in input.chars() {
+            if is_sep(ch) {
+                break;
+            }
+            char_count += 1;
+            byte_len += ch.len_utf8();
+        }
+        if char_count == 0 {
+            return None;
+        }
+        let word = &input[..byte_len];
+
+        let categories = [
+            (self.rules.control_statement, TextElement::Keyword),
+            (self.rules.keywords, TextElement::Keyword),
+            (self.rules.builtin_types, TextElement::Type),
+            (self.rules.bool_constants, TextElement::Boolean),
+            (self.rules.special_vars, TextElement::Special),
+        ];
+        let mut element = categories
+            .iter()
+            .find(|(slice, _)| slice.contains(&word))
+            .map(|&(_, elem)| elem)
+            .unwrap_or(TextElement::Identifier);
+
+        // If the last word was `fn` or `struct`, and this word isn't a reserved
+        // keyword then this word is the name being befined.
+        if self.expecting_identifier && element == TextElement::Identifier {
+            element = TextElement::Definition;
+        }
+        // update the state for the next word to be encountered.
+        if self.rules.definition_keywords.contains(&word) {
+            self.expecting_identifier = true;
+        } else {
+            self.expecting_identifier = false;
+        }
+        Some(self.consume_chars(input, element, char_count))
+    }
+
+    fn highlight_prefix_num(
+        &mut self, base: NumberBase, is_bound: bool, ch: char, input: &str,
+    ) -> Option<LexResult> {
+        let prefix = match base {
+            NumberBase::Hex => "0x",
+            NumberBase::Bin => "0b",
+            _ => unreachable!(),
+        };
+        // Closure checks if this character is allowed in the current number base?
+        // Also checks if it's a valid delimiter, like `_` in `0x1A_FF`
+        let is_valid_digit = |ch: char| -> bool {
+            match base {
+                NumberBase::Hex => ch.is_ascii_hexdigit(),
+                NumberBase::Bin => ch == '0' || ch == '1',
+                // check for the delimiter.
+                _ => self.rules.num_delim == Some(ch),
+            }
+        };
+        if is_bound {
+            // If we are at a word boundary, check if the input starts with `0x` or `0b`.
+            if input.starts_with(prefix)
+                && let Some(next_ch) = input[prefix.len()..].chars().next()
+            {
+                if is_valid_digit(next_ch) {
+                    // setup the state machine for parsing the upcoming numbers as
+                    // this base.
+                    self.num_base = base;
+                    let char_count = prefix.chars().count();
+                    return Some(self.consume_chars(input, TextElement::Number, char_count));
+                }
+            }
+        } else if self.num_base == base && self.last_element == TextElement::Number {
+            // We are already in between parsing a prefix number. Just check if the
+            // current character is a valid hex/bin digit.
+            if is_valid_digit(ch) {
+                return Some(self.consume_char(ch, TextElement::Number));
+            }
+        }
+        None
+    }
+
+    fn highlight_digit_number(&mut self, is_bound: bool, ch: char) -> Option<LexResult> {
+        let prev_is_number =
+            self.num_base == NumberBase::Digit && self.last_element == TextElement::Number;
+
+        if is_bound {
+            // For: 3.14
+            // '.' is considered to a bound, so when we encounter '.' is_bound
+            // will be true, and then in the next iteration when we encounter
+            // '1', is_bound will be true again and basically fall under this
+            // branch, which we correctly process.
+            if ch.is_ascii_digit() || (prev_is_number && ch == '.') {
+                self.num_base = NumberBase::Digit;
+                return Some(self.consume_char(ch, TextElement::Number));
+            }
+        } else if prev_is_number {
+            if ch.is_ascii_digit() || self.rules.num_delim == Some(ch) {
+                return Some(self.consume_char(ch, TextElement::Number));
+            }
+        }
+        None
+    }
+
+    fn highlight_char(&mut self, input: &str) -> Option<LexResult> {
+        // useful for c++ number delimiters [1'00'000 (who even writes it like that???)].
+        if self.rules.num_delim == Some('\'') && self.last_element == TextElement::Number {
+            return None;
+        }
+        if !input.starts_with('\'') {
+            return None;
+        }
+        let mut char_count = 1; // we know it starts with `'`, so we count it.
+        let mut is_escaped = false;
+
+        for ch in input[1..].chars() {
+            char_count += 1;
+            if is_escaped {
+                is_escaped = false;
+            } else if ch == '\\' {
+                is_escaped = true;
+            } else if ch == '\'' {
+                return Some(self.consume_chars(input, TextElement::String, char_count));
+            }
+        }
+        None
+    }
+
+    fn highlight_one(&mut self, c: char, input: &str) -> LexResult {
+        if self.expecting_identifier && !c.is_ascii_whitespace() && is_sep(c) {
+            self.expecting_identifier = false;
+        }
+        let is_bound = is_sep(self.last_char) ^ is_sep(c);
+
+        use NumberBase::*;
+        None.or_else(|| {
+            let (start, end) = self.rules.block_comment?;
+            self.highlight_block_comment(start, end, c, input)
+        })
+        .or_else(|| {
+            let leader = self.rules.line_comment?;
+            self.highlight_line_comment(leader, input)
+        })
+        // For booleans, we have to use `.then()` to convert bool to Option
+        .or_else(|| {
+            self.rules.character.then(|| ())?;
+            self.highlight_char(input)
+        })
+        .or_else(|| {
+            (!self.rules.string_quotes.is_empty()).then(|| ())?;
+            self.highlight_string(c)
+        })
+        .or_else(|| {
+            is_bound.then(|| ())?;
+            self.highlight_ident(input)
+        })
+        .or_else(|| {
+            (self.rules.hex_number && is_bound).then(|| ())?;
+            self.highlight_prefix_num(Hex, is_bound, c, input)
+        })
+        .or_else(|| {
+            (self.rules.bin_number && is_bound).then(|| ())?;
+            self.highlight_prefix_num(Bin, is_bound, c, input)
+        })
+        .or_else(|| {
+            self.rules.number.then(|| ())?;
+            self.highlight_digit_number(is_bound, c)
+        })
+        .unwrap_or_else(|| self.consume_char(c, TextElement::Normal))
     }
 }
 

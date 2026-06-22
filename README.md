@@ -6,6 +6,7 @@ Still being built, trying to get text rendering and highlights to work before
 adding some neovim like features, such as Modes and completions.
 
 ## Roadmap
+0. Provide proper documentation.
 1. Syntax Highlighting
 
 ## Features in Current Scope (Not in any particular order).
