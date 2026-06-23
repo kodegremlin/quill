@@ -115,11 +115,6 @@ struct Highlighter<'a> {
     expecting_identifier: bool,
 }
 
-struct LexResult {
-    element: TextElement,
-    byte_len: usize,
-}
-
 impl<'a> Highlighter<'a> {
     fn new<'b: 'a>(syntax: &'b SyntaxHighlight) -> Self {
         Self {
@@ -135,7 +130,9 @@ impl<'a> Highlighter<'a> {
 
     /// Consume a specific number of characters, calculates their byte width,
     /// and updates the state machine's previous character records.
-    fn consume_chars(&mut self, input: &str, element: TextElement, ch_count: usize) -> LexResult {
+    fn consume_chars(
+        &mut self, input: &str, element: TextElement, ch_count: usize,
+    ) -> HighlightSpan {
         debug_assert!(ch_count > 0);
         debug_assert!(!input.is_empty());
 
@@ -154,23 +151,26 @@ impl<'a> Highlighter<'a> {
             }
         }
         self.last_char = last_char;
-        LexResult { element, byte_len }
+        HighlightSpan {
+            element,
+            len: byte_len,
+        }
     }
 
     /// A highly lightweight version of `consume_chars` for a single character.
-    fn consume_char(&mut self, ch: char, element: TextElement) -> LexResult {
+    fn consume_char(&mut self, ch: char, element: TextElement) -> HighlightSpan {
         self.last_element = element;
         self.last_char = ch;
 
-        LexResult {
+        HighlightSpan {
             element,
-            byte_len: ch.len_utf8(),
+            len: ch.len_utf8(),
         }
     }
 
     fn highlight_block_comment(
         &mut self, start: &str, end: &str, ch: char, input: &str,
-    ) -> Option<LexResult> {
+    ) -> Option<HighlightSpan> {
         // If we are currently inside a quote, ignore comment syntax.
         // e.g., let s = "/* this is just a string */";
         if self.active_quote.is_some() {
@@ -202,7 +202,7 @@ impl<'a> Highlighter<'a> {
         Some(self.consume_chars(input, TextElement::Comment, comment_delim.chars().count()))
     }
 
-    fn highlight_line_comment(&mut self, leader: &str, input: &str) -> Option<LexResult> {
+    fn highlight_line_comment(&mut self, leader: &str, input: &str) -> Option<HighlightSpan> {
         // If we are currently inside a quote, ignore comment syntax.
         // e.g., let url = "https://google.com";
         //
@@ -216,7 +216,7 @@ impl<'a> Highlighter<'a> {
         None
     }
 
-    fn highlight_string(&mut self, ch: char) -> Option<LexResult> {
+    fn highlight_string(&mut self, ch: char) -> Option<HighlightSpan> {
         // we are inside a string; check if the current character matches the quote
         // that opened it.
         if let Some(active_quote) = self.active_quote {
@@ -238,7 +238,7 @@ impl<'a> Highlighter<'a> {
         None
     }
 
-    fn highlight_ident(&mut self, input: &str) -> Option<LexResult> {
+    fn highlight_ident(&mut self, input: &str) -> Option<HighlightSpan> {
         // Find the word boundary. We iterate through characters until we hit a
         // space or punctuation.
         let mut char_count = 0;
@@ -285,7 +285,7 @@ impl<'a> Highlighter<'a> {
 
     fn highlight_prefix_num(
         &mut self, base: NumberBase, is_bound: bool, ch: char, input: &str,
-    ) -> Option<LexResult> {
+    ) -> Option<HighlightSpan> {
         let prefix = match base {
             NumberBase::Hex => "0x",
             NumberBase::Bin => "0b",
@@ -324,7 +324,7 @@ impl<'a> Highlighter<'a> {
         None
     }
 
-    fn highlight_digit_number(&mut self, is_bound: bool, ch: char) -> Option<LexResult> {
+    fn highlight_digit_number(&mut self, is_bound: bool, ch: char) -> Option<HighlightSpan> {
         let prev_is_number =
             self.num_base == NumberBase::Digit && self.last_element == TextElement::Number;
 
@@ -346,7 +346,7 @@ impl<'a> Highlighter<'a> {
         None
     }
 
-    fn highlight_char(&mut self, input: &str) -> Option<LexResult> {
+    fn highlight_char(&mut self, input: &str) -> Option<HighlightSpan> {
         // useful for c++ number delimiters [1'00'000 (who even writes it like that???)].
         if self.rules.num_delim == Some('\'') && self.last_element == TextElement::Number {
             return None;
@@ -370,7 +370,7 @@ impl<'a> Highlighter<'a> {
         None
     }
 
-    fn parse_next_span(&mut self, ch: char, input: &str) -> LexResult {
+    fn highlight_next(&mut self, ch: char, input: &str) -> HighlightSpan {
         if self.expecting_identifier && !ch.is_ascii_whitespace() && is_sep(ch) {
             self.expecting_identifier = false;
         }
@@ -440,23 +440,18 @@ impl<'a> Highlighter<'a> {
             // If the last span we pushed has the exact same color as the one
             // we just parsed, don't push a new span, instead increase the
             // length of the last one.
-            let lex_res = self.parse_next_span(ch, input);
+            let span = self.highlight_next(ch, input);
+
             if let Some(last_span) = spans.last_mut() {
-                if last_span.element == lex_res.element {
-                    last_span.len += lex_res.byte_len;
+                if last_span.element == span.element {
+                    last_span.len += span.len;
                 } else {
-                    spans.push(HighlightSpan {
-                        element: lex_res.element,
-                        len: lex_res.byte_len,
-                    });
+                    spans.push(span);
                 }
             } else {
-                spans.push(HighlightSpan {
-                    element: lex_res.element,
-                    len: lex_res.byte_len,
-                });
+                spans.push(span);
             }
-            byte_idx += lex_res.byte_len;
+            byte_idx += span.len;
         }
         spans
     }
