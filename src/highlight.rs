@@ -118,7 +118,6 @@ struct Highlighter<'a> {
 struct LexResult {
     element: TextElement,
     byte_len: usize,
-    char_len: usize,
 }
 
 impl<'a> Highlighter<'a> {
@@ -155,11 +154,7 @@ impl<'a> Highlighter<'a> {
             }
         }
         self.last_char = last_char;
-        LexResult {
-            element,
-            byte_len,
-            char_len: ch_count,
-        }
+        LexResult { element, byte_len }
     }
 
     /// A highly lightweight version of `consume_chars` for a single character.
@@ -170,7 +165,6 @@ impl<'a> Highlighter<'a> {
         LexResult {
             element,
             byte_len: ch.len_utf8(),
-            char_len: 1,
         }
     }
 
@@ -376,16 +370,16 @@ impl<'a> Highlighter<'a> {
         None
     }
 
-    fn highlight_one(&mut self, c: char, input: &str) -> LexResult {
-        if self.expecting_identifier && !c.is_ascii_whitespace() && is_sep(c) {
+    fn parse_next_span(&mut self, ch: char, input: &str) -> LexResult {
+        if self.expecting_identifier && !ch.is_ascii_whitespace() && is_sep(ch) {
             self.expecting_identifier = false;
         }
-        let is_bound = is_sep(self.last_char) ^ is_sep(c);
+        let is_bound = is_sep(self.last_char) ^ is_sep(ch);
 
         use NumberBase::*;
         None.or_else(|| {
             let (start, end) = self.rules.block_comment?;
-            self.highlight_block_comment(start, end, c, input)
+            self.highlight_block_comment(start, end, ch, input)
         })
         .or_else(|| {
             let leader = self.rules.line_comment?;
@@ -398,7 +392,7 @@ impl<'a> Highlighter<'a> {
         })
         .or_else(|| {
             (!self.rules.string_quotes.is_empty()).then(|| ())?;
-            self.highlight_string(c)
+            self.highlight_string(ch)
         })
         .or_else(|| {
             is_bound.then(|| ())?;
@@ -406,17 +400,65 @@ impl<'a> Highlighter<'a> {
         })
         .or_else(|| {
             (self.rules.hex_number && is_bound).then(|| ())?;
-            self.highlight_prefix_num(Hex, is_bound, c, input)
+            self.highlight_prefix_num(Hex, is_bound, ch, input)
         })
         .or_else(|| {
             (self.rules.bin_number && is_bound).then(|| ())?;
-            self.highlight_prefix_num(Bin, is_bound, c, input)
+            self.highlight_prefix_num(Bin, is_bound, ch, input)
         })
         .or_else(|| {
             self.rules.number.then(|| ())?;
-            self.highlight_digit_number(is_bound, c)
+            self.highlight_digit_number(is_bound, ch)
         })
-        .unwrap_or_else(|| self.consume_char(c, TextElement::Normal))
+        .unwrap_or_else(|| self.consume_char(ch, TextElement::Normal))
+    }
+
+    pub fn highlight_line(&mut self, row: &str) -> Vec<HighlightSpan> {
+        // If there are not syntax rules (Plain Text), just return the entire
+        // line as a single Normal span.
+        if self.rules.language == Language::PlainText {
+            return vec![HighlightSpan {
+                element: TextElement::Normal,
+                len: row.len(),
+            }];
+        }
+        // We reset localized states, but we do not reset `in_block_comment`
+        // or `active_quote` because comments and strings can span multiple
+        // lines.
+        self.last_element = TextElement::Normal;
+        self.last_char = '\0';
+        self.num_base = NumberBase::Digit;
+        self.expecting_identifier = false;
+
+        let mut spans: Vec<HighlightSpan> = vec![];
+        let mut byte_idx = 0;
+
+        while byte_idx < row.len() {
+            let input = &row[byte_idx..];
+            let ch = input.chars().next().unwrap();
+
+            // If the last span we pushed has the exact same color as the one
+            // we just parsed, don't push a new span, instead increase the
+            // length of the last one.
+            let lex_res = self.parse_next_span(ch, input);
+            if let Some(last_span) = spans.last_mut() {
+                if last_span.element == lex_res.element {
+                    last_span.len += lex_res.byte_len;
+                } else {
+                    spans.push(HighlightSpan {
+                        element: lex_res.element,
+                        len: lex_res.byte_len,
+                    });
+                }
+            } else {
+                spans.push(HighlightSpan {
+                    element: lex_res.element,
+                    len: lex_res.byte_len,
+                });
+            }
+            byte_idx += lex_res.byte_len;
+        }
+        spans
     }
 }
 
