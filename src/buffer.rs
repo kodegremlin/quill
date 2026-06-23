@@ -58,7 +58,7 @@ impl<'a> Iterator for Lines<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|x| x.raw_text())
+        self.0.next().map(|x| x.buffer())
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -162,7 +162,7 @@ impl TextBuffer {
         let mut bytes = 0;
 
         for line in self.rows.iter() {
-            let text = line.raw_text();
+            let text = line.buffer();
             // check to see if using write_all() directly affects performance
             // for large files.
             writeln!(writer, "{}", text).context("Could not write to file")?;
@@ -308,7 +308,7 @@ impl TextBuffer {
                 row: self.row_idx + 1,
                 text: "".to_string(),
             });
-        } else if self.col_idx <= self.rows[self.row_idx].raw_text().len() {
+        } else if self.col_idx <= self.rows[self.row_idx].buffer().len() {
             let truncated = self.rows[self.row_idx][self.col_idx..].to_owned();
             self.new_diff(EditDiff::Truncate {
                 row: self.row_idx,
@@ -367,7 +367,7 @@ impl TextBuffer {
                 return;
             }
             self.concat_next_line();
-        } else if self.col_idx < row.raw_text().len() {
+        } else if self.col_idx < row.buffer().len() {
             let truncated = row[self.col_idx..].to_owned();
             self.new_diff(EditDiff::Truncate {
                 row: self.row_idx,
@@ -601,8 +601,8 @@ impl TextBuffer {
             self.step(direction);
             if self.row_idx == 0
                 || self.row_idx == self.rows.len()
-                || self.rows[self.row_idx - 1].raw_text().is_empty()
-                    && !self.rows[self.row_idx].raw_text().is_empty()
+                || self.rows[self.row_idx - 1].buffer().is_empty()
+                    && !self.rows[self.row_idx].buffer().is_empty()
             {
                 break;
             }

@@ -138,12 +138,12 @@ impl Row {
     }
 
     /// Returns the row's source text.
-    pub fn raw_text(&self) -> &str {
+    pub fn buffer(&self) -> &str {
         self.buffer.as_str()
     }
 
     /// Returns the row's rendered text.
-    pub fn render_text(&self) -> &str {
+    pub fn render(&self) -> &str {
         self.render.as_str()
     }
 
