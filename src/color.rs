@@ -20,7 +20,7 @@ pub enum TextElement {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UiElement {
     Background,
-    SearchMatches,
+    SearchMatch,
     CurrentMatch,
     ModeNormal,
     ModeInsert,
@@ -87,7 +87,7 @@ fn color_for_ui(element: UiElement) -> Style {
         ModeNormal => todo!(),
         ModeInsert => todo!(),
         ModeVisual => todo!(),
-        SearchMatches => Style::with_bg(Color::White, Color::Red),
+        SearchMatch => Style::with_bg(Color::White, Color::Red),
         CurrentMatch => Style::with_bg(Color::White, Color::Blue),
         StatusBar => todo!(),
         StatusBarInactive => todo!(),

@@ -3,16 +3,17 @@
 use crate::{
     color::{TextElement, UiElement},
     lang::Language,
+    row::Row,
 };
 
 #[derive(Debug)]
-struct SyntaxHighlight {
+struct SyntaxRules {
     block_comment: Option<(&'static str, &'static str)>,
     line_comment: Option<&'static str>,
     builtin_types: &'static [&'static str],
     keywords: &'static [&'static str],
     control_statement: &'static [&'static str],
-    language: Language,
+    lang: Language,
     string_quotes: &'static [char],
     number: bool,
     hex_number: bool,
@@ -24,17 +25,17 @@ struct SyntaxHighlight {
     definition_keywords: &'static [&'static str],
 }
 
-impl Default for SyntaxHighlight {
+impl Default for &SyntaxRules {
     fn default() -> Self {
-        PLAIN_SYNTAX
+        &PLAIN_SYNTAX
     }
 }
 
-const PLAIN_SYNTAX: SyntaxHighlight = SyntaxHighlight {
+const PLAIN_SYNTAX: SyntaxRules = SyntaxRules {
     builtin_types: &[],
     keywords: &[],
     control_statement: &[],
-    language: Language::PlainText,
+    lang: Language::PlainText,
     string_quotes: &[],
     number: false,
     hex_number: false,
@@ -48,7 +49,7 @@ const PLAIN_SYNTAX: SyntaxHighlight = SyntaxHighlight {
     definition_keywords: &[],
 };
 
-const RUST_SYNTAX: SyntaxHighlight = SyntaxHighlight {
+const RUST_SYNTAX: SyntaxRules = SyntaxRules {
     builtin_types: &[
         "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize",
         "f32", "f64", "bool", "char", "Box", "Option", "Some", "None", "Result", "Ok", "Err",
@@ -62,7 +63,7 @@ const RUST_SYNTAX: SyntaxHighlight = SyntaxHighlight {
     control_statement: &[
         "break", "continue", "else", "for", "if", "in", "loop", "match", "return", "while",
     ],
-    language: Language::Rust,
+    lang: Language::Rust,
     string_quotes: &['"'],
     number: true,
     hex_number: true,
@@ -78,8 +79,8 @@ const RUST_SYNTAX: SyntaxHighlight = SyntaxHighlight {
     ],
 };
 
-impl SyntaxHighlight {
-    fn for_lang(lang: Language) -> &'static SyntaxHighlight {
+impl SyntaxRules {
+    fn for_lang(lang: Language) -> &'static SyntaxRules {
         match lang {
             Language::Rust => &RUST_SYNTAX,
             _ => &PLAIN_SYNTAX,
@@ -89,7 +90,8 @@ impl SyntaxHighlight {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HighlightSpan {
-    pub element: TextElement,
+    pub highlight: TextElement,
+    pub overlay: Option<UiElement>,
     pub len: usize, // The length of this color in bytes.
 }
 
@@ -112,7 +114,7 @@ fn is_sep(ch: char) -> bool {
 
 #[derive(Debug)]
 struct Highlighter<'a> {
-    rules: &'a SyntaxHighlight,
+    rules: &'a SyntaxRules,
     active_quote: Option<char>,
     in_block_comment: bool,
     last_element: TextElement,
@@ -122,7 +124,7 @@ struct Highlighter<'a> {
 }
 
 impl<'a> Highlighter<'a> {
-    fn new<'b: 'a>(syntax: &'b SyntaxHighlight) -> Self {
+    fn new<'b: 'a>(syntax: &'b SyntaxRules) -> Self {
         Self {
             rules: syntax,
             active_quote: None,
@@ -137,7 +139,10 @@ impl<'a> Highlighter<'a> {
     /// Consume a specific number of characters, calculates their byte width,
     /// and updates the state machine's previous character records.
     fn consume_chars(
-        &mut self, input: &str, element: TextElement, ch_count: usize,
+        &mut self,
+        input: &str,
+        element: TextElement,
+        ch_count: usize,
     ) -> HighlightSpan {
         debug_assert!(ch_count > 0);
         debug_assert!(!input.is_empty());
@@ -158,7 +163,8 @@ impl<'a> Highlighter<'a> {
         }
         self.last_char = last_char;
         HighlightSpan {
-            element,
+            highlight: element,
+            overlay: None,
             len: byte_len,
         }
     }
@@ -169,13 +175,18 @@ impl<'a> Highlighter<'a> {
         self.last_char = ch;
 
         HighlightSpan {
-            element,
+            highlight: element,
+            overlay: None,
             len: ch.len_utf8(),
         }
     }
 
     fn highlight_block_comment(
-        &mut self, start: &str, end: &str, ch: char, input: &str,
+        &mut self,
+        start: &str,
+        end: &str,
+        ch: char,
+        input: &str,
     ) -> Option<HighlightSpan> {
         // If we are currently inside a quote, ignore comment syntax.
         // e.g., let s = "/* this is just a string */";
@@ -284,7 +295,11 @@ impl<'a> Highlighter<'a> {
     }
 
     fn highlight_prefix_num(
-        &mut self, base: NumberBase, is_bound: bool, ch: char, input: &str,
+        &mut self,
+        base: NumberBase,
+        is_bound: bool,
+        ch: char,
+        input: &str,
     ) -> Option<HighlightSpan> {
         let prefix = match base {
             NumberBase::Hex => "0x",
@@ -413,9 +428,10 @@ impl<'a> Highlighter<'a> {
     pub fn highlight_line(&mut self, row: &str) -> Vec<HighlightSpan> {
         // If there are not syntax rules (Plain Text), just return the entire
         // line as a single Normal span.
-        if self.rules.language == Language::PlainText {
+        if self.rules.lang == Language::PlainText {
             return vec![HighlightSpan {
-                element: TextElement::Normal,
+                highlight: TextElement::Normal,
+                overlay: None,
                 len: row.len(),
             }];
         }
@@ -440,7 +456,7 @@ impl<'a> Highlighter<'a> {
             let span = self.highlight_next(ch, input);
 
             if let Some(last_span) = spans.last_mut() {
-                if last_span.element == span.element {
+                if last_span.highlight == span.highlight {
                     last_span.len += span.len;
                 } else {
                     spans.push(span);
@@ -474,10 +490,150 @@ impl RegionHighlight {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct Highlighting {
+    lines: Vec<Vec<HighlightSpan>>,
     pub needs_update: bool,
-    pub lines: Vec<Vec<HighlightSpan>>,
     prev_bottom: usize,
     matched: Vec<RegionHighlight>,
-    rules: &'static SyntaxHighlight,
+    rules: &'static SyntaxRules,
+}
+
+impl Highlighting {
+    pub fn lines(&self, row_idx: usize) -> Option<&[HighlightSpan]> {
+        self.lines.get(row_idx).map(|v| v.as_slice())
+    }
+
+    pub fn clear_matches(&mut self) {
+        self.matched.clear();
+    }
+
+    pub fn has_matches(&self) -> bool {
+        !self.matched.is_empty()
+    }
+}
+
+impl Highlighting {
+    pub fn new(lang: Language, rows: &[Row]) -> Self {
+        let rules = SyntaxRules::for_lang(lang);
+        let mut hlr = Highlighter::new(rules);
+
+        let lines = rows
+            .iter()
+            .map(|r| hlr.highlight_line(r.render()))
+            .collect();
+
+        Self {
+            needs_update: true,
+            lines,
+            prev_bottom: 0,
+            matched: Vec::new(),
+            rules,
+        }
+    }
+
+    pub fn lang_changed(&mut self, new_lang: Language) {
+        if self.rules.lang == new_lang {
+            return;
+        }
+        self.rules = SyntaxRules::for_lang(new_lang);
+        self.needs_update = true;
+    }
+
+    pub fn highlight_match(&mut self, query: &str, rows: &[Row]) {
+        self.matched.clear();
+        if query.is_empty() {
+            return;
+        }
+        // Loop through the file and find every occurence.
+        for (row_idx, row) in rows.iter().enumerate() {
+            let line = row.render();
+            let mut byte_idx = 0;
+
+            // Efficiently find all matches on this line.
+            while let Some(match_idx) = line[byte_idx..].find(query) {
+                let start_x = byte_idx + match_idx;
+                let end_x = start_x + query.len();
+
+                self.matched.push(RegionHighlight {
+                    ui_element: UiElement::SearchMatch,
+                    start: (start_x, row_idx),
+                    end: (end_x, row_idx),
+                });
+                byte_idx = end_x;
+            }
+        }
+    }
+
+    pub fn apply_overlays(&self, row_idx: usize, original: &[HighlightSpan]) -> Vec<HighlightSpan> {
+        // Find all search bounding boxes that exist on this specific row.
+        let row_overlays: Vec<&RegionHighlight> = self
+            .matched
+            .iter()
+            .filter(|m| m.start.1 == row_idx)
+            .collect();
+
+        if row_overlays.is_empty() {
+            return original.to_vec();
+        }
+        let size = original.iter().map(|s| s.len).sum();
+
+        // `intermediate` will contain highlight for every byte in the span with
+        // None meaning there is no background yet for these bytes.
+        // This is like flattening of a span where a key like `struct` is a
+        // span:
+        // {highlight: keyword, ui: None, len: 6}
+        // but after flattened it becomes:
+        //          1                2          3      4      5            6
+        // {(keyword, None), (keyword, None), (...), (...), (...), (keyword, None)}
+        let mut intermediate = Vec::with_capacity(size);
+        for span in original {
+            for _ in 0..span.len {
+                intermediate.push((span.highlight, None));
+            }
+        }
+        for overlay in row_overlays {
+            // Ensuring the search indices never exceed the actual size of span.
+            // Otherwise it'll cause panic in flat_elements due to index access.
+            let start_x = overlay.start.0.min(size);
+            let end_x = overlay.end.0.min(size);
+
+            for (_, ui) in intermediate.iter_mut().take(end_x).skip(start_x) {
+                *ui = Some(overlay.ui_element);
+            }
+        }
+        let mut overwrite: Vec<HighlightSpan> = Vec::new();
+
+        for (highlight, overlay) in intermediate {
+            if let Some(last) = overwrite.last_mut()
+                && last.highlight == highlight
+                && last.overlay == overlay
+            {
+                last.len += 1;
+                continue;
+            }
+            overwrite.push(HighlightSpan {
+                highlight,
+                overlay,
+                len: 1,
+            });
+        }
+        overwrite
+    }
+
+    pub fn update(&mut self, rows: &[Row], bottom: usize) {
+        if !self.needs_update && bottom <= self.prev_bottom {
+            return;
+        }
+        let mut hlr = Highlighter::new(self.rules);
+
+        self.lines.resize_with(rows.len(), Default::default);
+        let bottom = bottom.min(rows.len());
+
+        for (row_idx, row) in rows.iter().enumerate().take(bottom) {
+            self.lines[row_idx] = hlr.highlight_line(row.render());
+        }
+        self.needs_update = false;
+        self.prev_bottom = bottom;
+    }
 }
