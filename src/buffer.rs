@@ -583,16 +583,11 @@ impl TextBuffer {
             }
             let curr = get_kind(self);
             match direction {
-                CursorDir::Left => {
-                    // when moving
-                    if Self::is_word_boundary(curr, prev) {
-                        return;
-                    }
+                CursorDir::Left if Self::is_word_boundary(curr, prev) => {
+                    return;
                 }
-                CursorDir::Right => {
-                    if Self::is_word_boundary(prev, curr) {
-                        return;
-                    }
+                CursorDir::Right if Self::is_word_boundary(prev, curr) => {
+                    return;
                 }
                 _ => {} // up/down are invalid so do nothing.
             }

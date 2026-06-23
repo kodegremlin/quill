@@ -24,6 +24,12 @@ struct SyntaxHighlight {
     definition_keywords: &'static [&'static str],
 }
 
+impl Default for SyntaxHighlight {
+    fn default() -> Self {
+        PLAIN_SYNTAX
+    }
+}
+
 const PLAIN_SYNTAX: SyntaxHighlight = SyntaxHighlight {
     builtin_types: &[],
     keywords: &[],
@@ -222,10 +228,8 @@ impl<'a> Highlighter<'a> {
         if let Some(active_quote) = self.active_quote {
             // check if it is escaped; if `last_char` was a backslash, this is just
             // a literal quote inside the text, NOT the end of the string.
-            if ch == active_quote {
-                if self.last_char != '\\' {
-                    self.active_quote = None;
-                }
+            if ch == active_quote && self.last_char != '\\' {
+                self.active_quote = None;
             }
             return Some(self.consume_char(ch, TextElement::String));
         } else if self.rules.string_quotes.contains(&ch) {
@@ -275,11 +279,7 @@ impl<'a> Highlighter<'a> {
             element = TextElement::Definition;
         }
         // update the state for the next word to be encountered.
-        if self.rules.definition_keywords.contains(&word) {
-            self.expecting_identifier = true;
-        } else {
-            self.expecting_identifier = false;
-        }
+        self.expecting_identifier = self.rules.definition_keywords.contains(&word);
         Some(self.consume_chars(input, element, char_count))
     }
 
@@ -305,14 +305,13 @@ impl<'a> Highlighter<'a> {
             // If we are at a word boundary, check if the input starts with `0x` or `0b`.
             if input.starts_with(prefix)
                 && let Some(next_ch) = input[prefix.len()..].chars().next()
+                && is_valid_digit(next_ch)
             {
-                if is_valid_digit(next_ch) {
-                    // setup the state machine for parsing the upcoming numbers as
-                    // this base.
-                    self.num_base = base;
-                    let char_count = prefix.chars().count();
-                    return Some(self.consume_chars(input, TextElement::Number, char_count));
-                }
+                // setup the state machine for parsing the upcoming numbers as
+                // this base.
+                self.num_base = base;
+                let char_count = prefix.chars().count();
+                return Some(self.consume_chars(input, TextElement::Number, char_count));
             }
         } else if self.num_base == base && self.last_element == TextElement::Number {
             // We are already in between parsing a prefix number. Just check if the
@@ -338,10 +337,8 @@ impl<'a> Highlighter<'a> {
                 self.num_base = NumberBase::Digit;
                 return Some(self.consume_char(ch, TextElement::Number));
             }
-        } else if prev_is_number {
-            if ch.is_ascii_digit() || self.rules.num_delim == Some(ch) {
-                return Some(self.consume_char(ch, TextElement::Number));
-            }
+        } else if prev_is_number && (ch.is_ascii_digit() || self.rules.num_delim == Some(ch)) {
+            return Some(self.consume_char(ch, TextElement::Number));
         }
         None
     }
@@ -387,27 +384,27 @@ impl<'a> Highlighter<'a> {
         })
         // For booleans, we have to use `.then()` to convert bool to Option
         .or_else(|| {
-            self.rules.character.then(|| ())?;
+            self.rules.character.then_some(())?;
             self.highlight_char(input)
         })
         .or_else(|| {
-            (!self.rules.string_quotes.is_empty()).then(|| ())?;
+            (!self.rules.string_quotes.is_empty()).then_some(())?;
             self.highlight_string(ch)
         })
         .or_else(|| {
-            is_bound.then(|| ())?;
+            is_bound.then_some(())?;
             self.highlight_ident(input)
         })
         .or_else(|| {
-            (self.rules.hex_number && is_bound).then(|| ())?;
+            (self.rules.hex_number && is_bound).then_some(())?;
             self.highlight_prefix_num(Hex, is_bound, ch, input)
         })
         .or_else(|| {
-            (self.rules.bin_number && is_bound).then(|| ())?;
+            (self.rules.bin_number && is_bound).then_some(())?;
             self.highlight_prefix_num(Bin, is_bound, ch, input)
         })
         .or_else(|| {
-            self.rules.number.then(|| ())?;
+            self.rules.number.then_some(())?;
             self.highlight_digit_number(is_bound, ch)
         })
         .unwrap_or_else(|| self.consume_char(ch, TextElement::Normal))
@@ -459,7 +456,28 @@ impl<'a> Highlighter<'a> {
 
 #[derive(Debug)]
 pub struct RegionHighlight {
+    /// The color to apply according to the elements.
     pub ui_element: UiElement,
+    /// The starting (x, y) coordinate.
     pub start: (usize, usize),
+    /// The ending (x, y) coordinate.
     pub end: (usize, usize),
+}
+
+impl RegionHighlight {
+    fn contains(&self, (col, row): (usize, usize)) -> bool {
+        let ((col_start, row_start), (col_end, row_end)) = (self.start, self.end);
+        if row < row_start || row_end < row {
+            return false;
+        }
+        (row_start < row && row < row_end) || (col_start <= col && col < col_end)
+    }
+}
+
+pub struct Highlighting {
+    pub needs_update: bool,
+    pub lines: Vec<Vec<HighlightSpan>>,
+    prev_bottom: usize,
+    matched: Vec<RegionHighlight>,
+    rules: &'static SyntaxHighlight,
 }
