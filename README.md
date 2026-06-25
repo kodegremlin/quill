@@ -7,10 +7,10 @@ adding some neovim like features, such as Modes and completions.
 
 ## Roadmap
 0. Provide proper documentation.
-1. Syntax Highlighting
+1. ~~Syntax Highlighting.~~ ***Done***
 
 ## Features in Current Scope (Not in any particular order).
-1. Implement a efficient span based syntax highlighting.
+1. ~~Implement a efficient span based syntax highlighting.~~ ***Done***
     - After a basic span based highlighter, integrate it with tree-sitter for better highlighting.
 2. Basic vim modes and operations they control.
 3. Auto completion:
@@ -21,3 +21,4 @@ adding some neovim like features, such as Modes and completions.
 ## Future Features (In no particular order).
 1. If the language is recognised, provide smart code traversal based on semantic meaning (maybe tree-sitter helps with this).
 2. See if core vim grammar can also be introduced if it doesn't introduce too much complexity.
+3. Look into undo trees like vim, instead of destructive linear history for mangaging parallel diffs.
