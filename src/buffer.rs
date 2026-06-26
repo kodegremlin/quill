@@ -147,7 +147,13 @@ impl TextBuffer {
         }
         let rows = io::BufReader::new(File::open(path)?)
             .lines()
-            .map(|r| Row::new(r?))
+            .map(|line_result| {
+                let mut line = line_result?;
+                if line.ends_with('\r') {
+                    line.pop();
+                }
+                Row::new(line)
+            })
             .collect::<Result<_>>()?;
 
         let mut buf = Self::empty();
@@ -181,6 +187,12 @@ impl TextBuffer {
         Ok(format!("{} bytes written to {}", bytes, fp.display))
     }
 
+    pub fn is_scratch(&self) -> bool {
+        self.file.is_none() && self.rows.len() == 1 && self.rows[0].len() == 0
+    }
+}
+
+impl TextBuffer {
     fn set_redraw_idx(&mut self, line: usize) {
         if let Some(row_idx) = self.redraw_from {
             if row_idx <= line {
@@ -190,6 +202,14 @@ impl TextBuffer {
         }
     }
 
+    pub fn col_idx(&self) -> usize {
+        self.col_idx
+    }
+
+    pub fn row_idx(&self) -> usize {
+        self.row_idx
+    }
+
     fn set_cursor(&mut self, cursor: CursorPosition) {
         self.col_idx = cursor.col;
         self.row_idx = cursor.row;
@@ -197,10 +217,6 @@ impl TextBuffer {
 
     pub fn rows(&self) -> &[Row] {
         &self.rows
-    }
-
-    pub fn row_idx(&self) -> usize {
-        self.row_idx
     }
 
     pub fn set_unnamed(&mut self) {
@@ -226,10 +242,6 @@ impl TextBuffer {
         let fp = FilePath::from_string(path);
         self.lang = Language::detect(&fp.path);
         self.file = Some(fp);
-    }
-
-    pub fn is_scratch(&self) -> bool {
-        self.file.is_none() && self.rows.len() == 1 && self.rows[0].len() == 0
     }
 }
 

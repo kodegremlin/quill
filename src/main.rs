@@ -1,14 +1,16 @@
 use crate::{
     buffer::TextBuffer,
-    renderer::{Renderer, StatusMessage},
+    highlight::Highlighting,
+    renderer::Renderer,
     status_bar::StatusBar,
     terminal::{Terminal, TerminalGuard},
 };
 
 use anyhow::Result;
+use clap::Parser;
 use std::{
-    io::{self, Write},
-    time::{Duration, SystemTime},
+    io::{self},
+    time::Duration,
 };
 
 mod buffer;
@@ -26,27 +28,34 @@ mod terminal;
 the function does.
 */
 
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    file: Option<String>,
+}
+
 fn main() -> Result<()> {
+    let args = Args::parse();
+
     let _guard = TerminalGuard::enter()?;
     let size = Terminal::size()?;
+
     let mut renderer = Renderer::new(size, io::stdout())?;
-    renderer.set_info_msg("Test Message: The engine is working");
-    let mut buf = TextBuffer::empty();
-    buf.set_file("test.rs");
-    let status = StatusBar::from_buffer(&buf, (1, 1));
 
-    let mut stdout = io::stdout();
-    renderer.render_welcome(&mut stdout)?;
-    renderer.draw_status_bar(&mut stdout, &status)?;
+    print!("here?");
 
-    let msg_str = renderer.message_text();
-    let status_msg = StatusMessage {
-        text: msg_str.to_string(),
-        timestamp: SystemTime::now(),
-        kind: renderer::StatusMessageKind::Error,
+    let buffer = if let Some(path) = args.file {
+        TextBuffer::open(&path)?
+    } else {
+        TextBuffer::empty()
     };
-    renderer.draw_message_bar(&mut stdout, &status_msg)?;
-    stdout.flush()?;
-    std::thread::sleep(Duration::from_secs(10));
+    let status = StatusBar::from_buffer(&buffer, (buffer.col_idx(), buffer.row_idx()));
+    let mut hl = Highlighting::default();
+    hl.lang_changed(lang::Language::Rust);
+
+    renderer.set_info_msg("Text rendering complete, scrolling is left to be added.");
+    renderer.render(&buffer, &mut hl, &status)?;
+
+    std::thread::sleep(Duration::from_secs(20));
     Ok(())
 }

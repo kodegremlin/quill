@@ -69,27 +69,27 @@ fn color_for_text(element: TextElement) -> Style {
         Identifier => Style::new(Color::White),
         String => Style::new(Color::Blue),
         Keyword => Style::new(Color::Red),
-        Comment => todo!(),
-        Documentation => todo!(),
-        Number => todo!(),
-        Type => todo!(),
-        Normal => todo!(),
-        Definition => todo!(),
-        Boolean => todo!(),
-        Special => todo!(),
+        Comment => Style::new(Color::DarkGrey),
+        Documentation => Style::new(Color::DarkGrey),
+        Number => Style::new(Color::DarkCyan),
+        Type => Style::new(Color::DarkYellow),
+        Normal => Style::new(Color::White),
+        Definition => Style::new(Color::DarkGreen),
+        Boolean => Style::new(Color::DarkRed),
+        Special => Style::new(Color::Magenta),
     }
 }
 
 fn color_for_ui(element: UiElement) -> Style {
     use UiElement::*;
     match element {
-        Background => todo!(),
-        ModeNormal => todo!(),
-        ModeInsert => todo!(),
-        ModeVisual => todo!(),
-        SearchMatch => Style::with_bg(Color::White, Color::Red),
-        CurrentMatch => Style::with_bg(Color::White, Color::Blue),
-        StatusBar => todo!(),
-        StatusBarInactive => todo!(),
+        Background => Style::new(Color::Reset),
+        ModeNormal => Style::new(Color::Reset),
+        ModeInsert => Style::new(Color::Reset),
+        ModeVisual => Style::new(Color::Reset),
+        SearchMatch => Style::with_bg(Color::Black, Color::Yellow),
+        CurrentMatch => Style::with_bg(Color::Black, Color::Cyan),
+        StatusBar => Style::new(Color::Reset),
+        StatusBarInactive => Style::new(Color::Reset),
     }
 }

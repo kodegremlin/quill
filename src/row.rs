@@ -175,13 +175,13 @@ impl Row {
         self[idx..].chars().next()
     }
 
-    /// Returns the rendered column corresponding to `cx`.
-    pub fn rx_from_cx(&self, cx: usize) -> usize {
-        self[..cx].chars().fold(0, |rx, ch| {
+    /// Returns the rendered column corresponding to the raw `col_idx`.
+    pub fn rcol_idx_from(&self, col_idx: usize) -> usize {
+        self[..col_idx].chars().fold(0, |rcol_idx, ch| {
             if ch == '\t' {
-                rx + TAB_STOP - (rx % TAB_STOP)
+                rcol_idx + TAB_STOP - (rcol_idx % TAB_STOP)
             } else {
-                rx + ch.width_cjk().unwrap()
+                rcol_idx + ch.width_cjk().unwrap()
             }
         })
     }
