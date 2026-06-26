@@ -33,6 +33,8 @@ pub struct FilePath {
 }
 
 impl FilePath {
+    /// Returns `FilePath` constructed from the given string or a type that implements
+    /// `Into<String>`.
     fn from_string<S: Into<String>>(string: S) -> Self {
         let display = string.into();
         Self {
@@ -41,6 +43,10 @@ impl FilePath {
         }
     }
 
+    /// Returns `FilePath` constructed from the given path or a type that implements
+    /// `AsRef<Path>`.
+    ///
+    /// `[FilePath::display]` is constructed using `path.to_string_lossy()`.
     fn from_path<P: AsRef<Path>>(path: P) -> Self {
         let path = path.as_ref();
         Self {
@@ -108,6 +114,7 @@ pub struct TextBuffer {
 }
 
 impl TextBuffer {
+    /// Returns an empty `TextBuffer`.
     pub fn empty() -> Self {
         Self {
             rows: vec![Row::empty()],
