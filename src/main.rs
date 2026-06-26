@@ -36,6 +36,7 @@ fn main() -> Result<()> {
     let status = StatusBar::from_buffer(&buf, (1, 1));
 
     let mut stdout = io::stdout();
+    renderer.render_welcome(&mut stdout)?;
     renderer.draw_status_bar(&mut stdout, &status)?;
 
     let msg_str = renderer.message_text();

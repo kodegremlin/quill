@@ -301,4 +301,35 @@ impl<W: Write> Renderer<W> {
         )?;
         Ok(())
     }
+
+    pub fn render_welcome<B: Write>(&self, writer: &mut B) -> Result<()> {
+        let welcome = "Kiro Editor -- Version 0.1";
+
+        let (_, msg_len) = Self::trim_visual(welcome, self.num_cols);
+        for row in 0..self.num_rows {
+            queue!(writer, MoveTo(0, row as u16))?;
+            // Draw the welcome message approximately 1/3rd down the screen.
+            if row == self.num_rows / 3 {
+                let padding = self.num_cols.saturating_sub(msg_len) / 2;
+                if padding > 0 {
+                    queue!(
+                        writer,
+                        Print("~"),
+                        Print(" ".repeat(padding.saturating_sub(1))),
+                        Print(welcome)
+                    )?;
+                } else {
+                    // This means terminal is extremely narrow and can't even
+                    // fit the message, trim the message to fit.
+                    let (trimmed, _) = Self::trim_visual(welcome, self.num_cols.saturating_sub(1));
+                    queue!(writer, Print("~"), Print(trimmed))?;
+                }
+            } else {
+                // Draw the standard empty-row markers "~".
+                queue!(writer, Print("~"))?;
+            }
+            queue!(writer, Clear(ClearType::UntilNewLine))?;
+        }
+        Ok(())
+    }
 }
