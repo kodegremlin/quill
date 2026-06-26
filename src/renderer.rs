@@ -80,7 +80,7 @@ pub struct Renderer<W: Write> {
     row_idx: usize,
 
     /// The active transient status message, if any.
-    pub message: Option<StatusMessage>,
+    message: Option<StatusMessage>,
 
     /// The current operational state of the message bar.
     draw_message: DrawMessage,

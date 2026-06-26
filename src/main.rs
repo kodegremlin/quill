@@ -1,6 +1,6 @@
 use crate::{
     buffer::TextBuffer,
-    renderer::Renderer,
+    renderer::{Renderer, StatusMessage},
     status_bar::StatusBar,
     terminal::{Terminal, TerminalGuard},
 };
@@ -8,7 +8,7 @@ use crate::{
 use anyhow::Result;
 use std::{
     io::{self, Write},
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 
 mod buffer;
@@ -36,9 +36,15 @@ fn main() -> Result<()> {
     let status = StatusBar::from_buffer(&buf, (1, 1));
 
     let mut stdout = io::stdout();
-
     renderer.draw_status_bar(&mut stdout, &status)?;
-    renderer.draw_message_bar(&mut stdout, renderer.message.as_ref().unwrap())?;
+
+    let msg_str = renderer.message_text();
+    let status_msg = StatusMessage {
+        text: msg_str.to_string(),
+        timestamp: SystemTime::now(),
+        kind: renderer::StatusMessageKind::Error,
+    };
+    renderer.draw_message_bar(&mut stdout, &status_msg)?;
     stdout.flush()?;
     std::thread::sleep(Duration::from_secs(10));
     Ok(())
