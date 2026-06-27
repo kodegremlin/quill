@@ -388,6 +388,9 @@ impl TextBuffer {
             if self.row_idx == self.rows.len() - 1 {
                 return;
             }
+            /* TODO: This can be extended to support vim's `Shift-J` keypress where
+            it doesn't matter where the cursor was, the next line gets concatenated
+            to the end of current line.*/
             self.concat_next_line();
         } else if self.col_idx < row.buffer().len() {
             let truncated = row[self.col_idx..].to_owned();
@@ -529,7 +532,7 @@ impl TextBuffer {
         match direction {
             CursorDir::Up => self.row_idx = self.row_idx.saturating_sub(1),
             CursorDir::Down => {
-                if self.row_idx < self.rows.len() {
+                if self.row_idx + 1 < self.rows.len() {
                     self.row_idx += 1;
                 }
             }
@@ -547,7 +550,7 @@ impl TextBuffer {
 
                     if self.col_idx < len {
                         self.col_idx += 1;
-                    } else if self.col_idx >= len {
+                    } else if self.row_idx + 1 < self.rows.len() {
                         self.row_idx += 1;
                         self.col_idx = 0;
                     }

@@ -62,12 +62,10 @@ impl Row {
 
     /// Returns the byte index of the character
     pub fn char_to_byte_idx(&self, char_idx: usize) -> usize {
-        let len = self.indices.len();
-
-        if len == char_idx {
-            self.buffer.len()
-        } else if len == 0 {
+        if self.indices.is_empty() {
             char_idx
+        } else if char_idx == self.indices.len() {
+            self.buffer.len()
         } else {
             self.indices[char_idx]
         }
