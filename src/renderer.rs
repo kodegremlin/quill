@@ -164,51 +164,6 @@ impl<W: Write> Renderer<W> {
         })
     }
 
-    pub fn resize(&mut self, size: Size) -> Result<()> {
-        let height = size.height as usize;
-        let width = size.width as usize;
-
-        if window_too_small(width, height) {
-            bail!(
-                "Terminal resized below minimum viable bounds: {}x{}",
-                width,
-                height
-            )
-        }
-        self.num_rows = height.saturating_sub(2);
-        self.num_cols = width;
-        Ok(())
-    }
-
-    fn write_flush(&mut self, bytes: &[u8]) -> Result<()> {
-        self.output.write_all(bytes)?;
-        self.output.flush()?;
-        Ok(())
-    }
-
-    pub fn render_smoke_test(&mut self) -> Result<()> {
-        let mut canvas = Vec::with_capacity((self.num_rows + 2) * self.num_cols);
-
-        queue!(
-            canvas,
-            Hide,
-            Clear(ClearType::All),
-            MoveTo(0, 0),
-            Print("Kiro Viewport Architecture: Active"),
-            MoveTo(0, 1),
-            Print(format!(
-                "Usable text grid: {} cols x {} rows",
-                self.num_cols, self.num_rows
-            )),
-            MoveTo(0, 2),
-            Print("Hardware buffer safely bound. Ready for Layer 2..."),
-            Show
-        )?;
-        self.write_flush(&canvas)
-    }
-}
-
-impl<W: Write> Renderer<W> {
     fn set_msg(&mut self, status_msg: Option<StatusMessage>) {
         let rhs = match (&self.message, &status_msg) {
             (Some(prev), Some(next)) if prev.text == next.text => DrawMessage::DoNothing,
@@ -254,9 +209,52 @@ impl<W: Write> Renderer<W> {
     pub fn message_text(&self) -> &str {
         self.message.as_ref().map(|m| m.text.as_str()).unwrap_or("")
     }
+
+    pub fn render_smoke_test(&mut self) -> Result<()> {
+        let mut canvas = Vec::with_capacity((self.num_rows + 2) * self.num_cols);
+
+        queue!(
+            canvas,
+            Hide,
+            Clear(ClearType::All),
+            MoveTo(0, 0),
+            Print("Kiro Viewport Architecture: Active"),
+            MoveTo(0, 1),
+            Print(format!(
+                "Usable text grid: {} cols x {} rows",
+                self.num_cols, self.num_rows
+            )),
+            MoveTo(0, 2),
+            Print("Hardware buffer safely bound. Ready for Layer 2..."),
+            Show
+        )?;
+        self.write_flush(&canvas)
+    }
 }
 
 impl<W: Write> Renderer<W> {
+    pub fn resize(&mut self, size: Size) -> Result<()> {
+        let height = size.height as usize;
+        let width = size.width as usize;
+
+        if window_too_small(width, height) {
+            bail!(
+                "Terminal resized below minimum viable bounds: {}x{}",
+                width,
+                height
+            )
+        }
+        self.num_rows = height.saturating_sub(2);
+        self.num_cols = width;
+        Ok(())
+    }
+
+    fn write_flush(&mut self, bytes: &[u8]) -> Result<()> {
+        self.output.write_all(bytes)?;
+        self.output.flush()?;
+        Ok(())
+    }
+
     fn update_message_bar(&mut self) -> Result<()> {
         if let Some(msg) = &self.message
             && let Ok(elapsed) = msg.timestamp.elapsed()
