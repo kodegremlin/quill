@@ -56,6 +56,6 @@ fn main() -> Result<()> {
     renderer.set_info_msg("Text rendering complete, scrolling is left to be added.");
     renderer.render(&buffer, &mut hl, &status)?;
 
-    std::thread::sleep(Duration::from_secs(20));
+    std::thread::sleep(Duration::from_secs(40));
     Ok(())
 }

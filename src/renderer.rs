@@ -452,29 +452,33 @@ impl<W: Write> Renderer<W> {
     ) -> Result<()> {
         let mut canvas = Vec::with_capacity((self.num_rows + 2) * self.num_cols);
 
+        // Hide the cursor during painting the canvas.
         queue!(canvas, Hide)?;
-        if let Some(redraw_idx) = self.redraw_idx {
+
+        if buffer.is_scratch() && self.redraw_idx == Some(0) {
+            self.render_welcome(&mut canvas)?;
+        } else if let Some(redraw_idx) = self.redraw_idx {
             self.draw_rows(&mut canvas, redraw_idx, buffer.rows(), hl)?;
         }
         if status_bar.redraw || self.redraw_idx.is_some() {
             self.draw_status_bar(&mut canvas, status_bar)?;
         }
-        if self.draw_message != DrawMessage::DoNothing || self.redraw_idx.is_some() {
-            if let Some(msg) = &self.status_msg {
-                self.draw_message_bar(&mut canvas, msg)?;
-            } else {
-                // If there is no message, clear the bottom row just in case.
-                queue!(
-                    canvas,
-                    MoveTo(0, self.num_rows as u16 + 1),
-                    Clear(ClearType::UntilNewLine)
-                )?;
-            }
+        if (self.draw_message != DrawMessage::DoNothing || self.redraw_idx.is_some())
+            && let Some(msg) = &self.status_msg
+        {
+            self.draw_message_bar(&mut canvas, msg)?;
+        } else {
+            // If there is no message, clear the bottom row just in case.
+            queue!(
+                canvas,
+                MoveTo(0, self.num_rows as u16 + 1),
+                Clear(ClearType::UntilNewLine)
+            )?;
         }
         let col_idx = buffer.col_idx();
         let row_idx = buffer.row_idx();
 
-        let rcol_idx = if col_idx < buffer.rows().len() {
+        let rcol_idx = if row_idx < buffer.rows().len() {
             buffer.rows()[row_idx].rcol_idx_from(col_idx)
         } else {
             0
@@ -539,21 +543,7 @@ impl<W: Write> Renderer<W> {
         hl.update(buffer.rows(), self.rowoff + self.num_rows);
         // If the screen is completely empty, draw the welcome splash.
 
-        if buffer.is_scratch() && self.redraw_idx == Some(0) {
-            let mut canvas = vec![];
-
-            queue!(canvas, Hide)?;
-            self.render_welcome(&mut canvas)?;
-
-            self.draw_status_bar(&mut canvas, status_bar)?;
-            if let Some(msg) = &self.status_msg {
-                self.draw_message_bar(&mut canvas, msg)?;
-            }
-            queue!(canvas, MoveTo(0, 0), Show)?;
-            self.write_flush(&canvas)?;
-        } else {
-            self.redraw(buffer, hl, status_bar)?;
-        }
+        self.redraw(buffer, hl, status_bar)?;
         self.after_render();
         Ok(())
     }
