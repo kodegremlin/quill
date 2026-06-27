@@ -14,6 +14,7 @@ use std::{
 };
 
 mod buffer;
+mod buffer_tests;
 mod color;
 mod diff;
 mod highlight;
