@@ -552,9 +552,9 @@ impl TextBuffer {
             }
         }
         // snap cursor to the end of line when moving up/down from a longer line.
-        let len = self.rows.get(self.row_idx).map(|r| r.len()).unwrap_or(0);
-        if self.col_idx > len {
-            self.col_idx = len;
+        let curr_row_len = self.rows.get(self.row_idx).map(|r| r.len()).unwrap_or(0);
+        if self.col_idx > curr_row_len {
+            self.col_idx = curr_row_len;
         }
     }
 

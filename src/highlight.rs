@@ -109,7 +109,7 @@ enum ParseStep {
 }
 
 fn is_sep(ch: char) -> bool {
-    ch.is_ascii_whitespace() || (ch.is_ascii_whitespace() && ch.ne(&'_')) || ch.ne(&'\0')
+    ch.is_ascii_whitespace() || (ch.is_ascii_punctuation() && ch != '_') || ch == '\0'
 }
 
 #[derive(Debug)]

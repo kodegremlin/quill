@@ -474,7 +474,7 @@ impl<W: Write> Renderer<W> {
         let row_idx = buffer.row_idx();
 
         let rcol_idx = if col_idx < buffer.rows().len() {
-            buffer.rows()[col_idx].rcol_idx_from(col_idx)
+            buffer.rows()[row_idx].rcol_idx_from(col_idx)
         } else {
             0
         };
