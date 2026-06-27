@@ -210,6 +210,10 @@ impl TextBuffer {
         self.row_idx
     }
 
+    fn curr_row(&self) -> &Row {
+        &self.rows[self.row_idx]
+    }
+
     fn set_cursor(&mut self, cursor: CursorPosition) {
         self.col_idx = cursor.col;
         self.row_idx = cursor.row;
@@ -286,25 +290,24 @@ impl TextBuffer {
             return;
         }
         self.insert_undo_point();
-        if self.col_idx > 0 {
-            let col = self.col_idx - 1;
-            let deleted = self.rows[self.row_idx].char_at(col);
-            let cursor = CursorPosition {
-                col: self.col_idx,
-                row: self.row_idx,
-            };
-            self.new_diff(EditDiff::DeleteChar {
-                at: cursor,
-                ch: deleted,
-            });
-        } else {
-            self.squash_to_previous_line();
+        if self.col_idx == 0 {
+            return self.squash_to_previous_line();
         }
+        let col_idx = self.col_idx - 1;
+        let deleted = self.curr_row().char_at(col_idx);
+        let cursor = CursorPosition {
+            col: self.col_idx,
+            row: self.row_idx,
+        };
+        self.new_diff(EditDiff::DeleteChar {
+            at: cursor,
+            ch: deleted,
+        });
     }
 
     pub fn delete_right_char(&mut self) {
         if self.row_idx == self.rows.len()
-            || self.row_idx == self.rows.len() - 1 && self.col_idx == self.rows[self.row_idx].len()
+            || self.row_idx == self.rows.len() - 1 && self.col_idx == self.curr_row().len()
         {
             // nothing can be deleted at the end of the buffer and the cursor
             // should not move.
@@ -322,13 +325,13 @@ impl TextBuffer {
                 row: self.row_idx,
                 text: "".to_string(),
             });
-        } else if self.col_idx >= self.rows[self.row_idx].len() {
+        } else if self.col_idx >= self.curr_row().len() {
             self.new_diff(EditDiff::InsertLine {
                 row: self.row_idx + 1,
                 text: "".to_string(),
             });
-        } else if self.col_idx <= self.rows[self.row_idx].buffer().len() {
-            let truncated = self.rows[self.row_idx][self.col_idx..].to_owned();
+        } else if self.col_idx <= self.curr_row().buffer().len() {
+            let truncated = self.curr_row()[self.col_idx..].to_owned();
             self.new_diff(EditDiff::Truncate {
                 row: self.row_idx,
                 removed: truncated.clone(),
@@ -346,7 +349,7 @@ impl TextBuffer {
         }
         self.insert_undo_point();
 
-        let line = &self.rows[self.row_idx];
+        let line = self.curr_row();
         let mut colx = self.col_idx - 1;
 
         // if we are on a whitespace we'll keep going back until we encounter an
@@ -378,7 +381,7 @@ impl TextBuffer {
         }
         self.insert_undo_point();
 
-        let row = &self.rows[self.row_idx];
+        let row = self.curr_row();
         if self.col_idx == row.len() {
             // do nothing when cursor is at the end of line and at the end of the
             // text buffer; basically the last line and the last character in it.
@@ -404,7 +407,7 @@ impl TextBuffer {
         if self.col_idx == 0 {
             self.squash_to_previous_line();
         } else {
-            let removed = self.rows[self.row_idx][..self.col_idx].to_owned();
+            let removed = self.curr_row()[..self.col_idx].to_owned();
             let cursor = CursorPosition {
                 col: 0,
                 row: self.row_idx,
@@ -421,7 +424,7 @@ impl TextBuffer {
         // move cursor to previous line/row.
         self.row_idx -= 1;
         // move cursor to the end of now current row.
-        self.col_idx = self.rows[self.row_idx].len();
+        self.col_idx = self.curr_row().len();
         self.concat_next_line();
     }
 
@@ -535,12 +538,12 @@ impl TextBuffer {
                     self.col_idx -= 1;
                 } else if self.row_idx > 0 {
                     self.row_idx -= 1;
-                    self.col_idx = self.rows[self.row_idx].len();
+                    self.col_idx = self.curr_row().len();
                 }
             }
             CursorDir::Right => {
                 if self.row_idx < self.rows.len() {
-                    let len = self.rows[self.row_idx].len();
+                    let len = self.curr_row().len();
 
                     if self.col_idx < len {
                         self.col_idx += 1;
@@ -575,7 +578,7 @@ impl TextBuffer {
             CursorDir::Left => self.col_idx = 0,
             CursorDir::Right => {
                 if self.row_idx < self.rows.len() {
-                    self.col_idx = self.rows[self.row_idx].len();
+                    self.col_idx = self.curr_row().len();
                 }
             }
             CursorDir::Up => self.row_idx = 0,
@@ -621,7 +624,7 @@ impl TextBuffer {
             if self.row_idx == 0
                 || self.row_idx == self.rows.len()
                 || self.rows[self.row_idx - 1].buffer().is_empty()
-                    && !self.rows[self.row_idx].buffer().is_empty()
+                    && !self.curr_row().buffer().is_empty()
             {
                 break;
             }
