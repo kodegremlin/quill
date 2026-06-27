@@ -89,7 +89,7 @@ pub struct Renderer<W: Write> {
     rcol_idx: usize,
 
     /// The active transient status message, if any.
-    message: Option<StatusMessage>,
+    status_msg: Option<StatusMessage>,
 
     /// The current operational state of the message bar.
     draw_message: DrawMessage,
@@ -155,7 +155,7 @@ impl<W: Write> Renderer<W> {
             num_cols: width,
             output,
             rcol_idx: 0,
-            message: None,
+            status_msg: None,
             draw_message: DrawMessage::DoNothing,
             redraw_idx: Some(0),
             cursor_moved: true,
@@ -165,7 +165,7 @@ impl<W: Write> Renderer<W> {
     }
 
     fn set_msg(&mut self, status_msg: Option<StatusMessage>) {
-        let rhs = match (&self.message, &status_msg) {
+        let rhs = match (&self.status_msg, &status_msg) {
             (Some(prev), Some(next)) if prev.text == next.text => DrawMessage::DoNothing,
             (Some(_), Some(_)) => DrawMessage::Update,
             (None, Some(_)) => DrawMessage::Open,
@@ -173,7 +173,7 @@ impl<W: Write> Renderer<W> {
             (None, None) => DrawMessage::DoNothing,
         };
         self.draw_message = self.draw_message.merge(rhs);
-        self.message = status_msg;
+        self.status_msg = status_msg;
     }
 
     pub fn set_info_msg<S: Into<String>>(&mut self, msg: S) {
@@ -195,7 +195,7 @@ impl<W: Write> Renderer<W> {
     }
 
     pub fn rows(&self) -> usize {
-        if self.message.is_some() {
+        if self.status_msg.is_some() {
             self.num_rows
         } else {
             self.num_rows + 1
@@ -207,7 +207,10 @@ impl<W: Write> Renderer<W> {
     }
 
     pub fn message_text(&self) -> &str {
-        self.message.as_ref().map(|m| m.text.as_str()).unwrap_or("")
+        self.status_msg
+            .as_ref()
+            .map(|m| m.text.as_str())
+            .unwrap_or("")
     }
 
     pub fn render_smoke_test(&mut self) -> Result<()> {
@@ -256,8 +259,8 @@ impl<W: Write> Renderer<W> {
     }
 
     fn update_message_bar(&mut self) -> Result<()> {
-        if let Some(msg) = &self.message
-            && let Ok(elapsed) = msg.timestamp.elapsed()
+        if let Some(sm) = &self.status_msg
+            && let Ok(elapsed) = sm.timestamp.elapsed()
             && elapsed.as_secs() > 5
         {
             self.remove_msg();
@@ -457,7 +460,7 @@ impl<W: Write> Renderer<W> {
             self.draw_status_bar(&mut canvas, status_bar)?;
         }
         if self.draw_message != DrawMessage::DoNothing || self.redraw_idx.is_some() {
-            if let Some(msg) = &self.message {
+            if let Some(msg) = &self.status_msg {
                 self.draw_message_bar(&mut canvas, msg)?;
             } else {
                 // If there is no message, clear the bottom row just in case.
@@ -495,6 +498,7 @@ impl<W: Write> Renderer<W> {
 
         let mut camera_moved = false;
 
+        // Shift the viewport when cursor is outside screen.
         if row_idx < self.rowoff {
             self.rowoff = row_idx;
             camera_moved = true;
@@ -542,7 +546,7 @@ impl<W: Write> Renderer<W> {
             self.render_welcome(&mut canvas)?;
 
             self.draw_status_bar(&mut canvas, status_bar)?;
-            if let Some(msg) = &self.message {
+            if let Some(msg) = &self.status_msg {
                 self.draw_message_bar(&mut canvas, msg)?;
             }
             queue!(canvas, MoveTo(0, 0), Show)?;
