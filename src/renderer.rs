@@ -211,6 +211,12 @@ impl<W: Write> Renderer<W> {
             .unwrap_or("")
     }
 
+    pub fn force_set_cursor(&mut self, col: usize, row: usize) -> Result<()> {
+        queue!(self.output, MoveTo(col as u16, row as u16), Show)?;
+        self.output.flush()?;
+        Ok(())
+    }
+
     pub fn render_smoke_test(&mut self) -> Result<()> {
         let mut canvas = Vec::with_capacity((self.num_rows + 2) * self.num_cols);
 
@@ -532,16 +538,15 @@ impl<W: Write> Renderer<W> {
     pub fn render(
         &mut self,
         buffer: &TextBuffer,
-        hl: &mut Highlighting,
+        highlight: &mut Highlighting,
         status_bar: &StatusBar,
     ) -> Result<()> {
         self.do_scroll(buffer);
         self.update_message_bar()?;
 
-        hl.update(buffer.rows(), self.rowoff + self.num_rows);
-        // If the screen is completely empty, draw the welcome splash.
+        highlight.update(buffer.rows(), self.rowoff + self.num_rows);
 
-        self.redraw(buffer, hl, status_bar)?;
+        self.redraw(buffer, highlight, status_bar)?;
         self.after_render();
         Ok(())
     }
