@@ -107,4 +107,56 @@ impl<'a, W: Write> Command<'a, W> {
         self.renderer.force_set_cursor(prompt_col, prompt_row)?;
         Ok(())
     }
+
+    pub fn run<A, S, I>(&mut self, cmd: S, input: &mut I) -> Result<CommandResult>
+    where
+        A: Action,
+        S: AsRef<str>,
+        I: Iterator<Item = Result<Event>>,
+    {
+        let mut action = A::new(self);
+        let mut cmd_buf = String::new();
+        let mut canceled = false;
+
+        // Parse the command template (e.g. "Save as: {} (ESC to cancel)").
+        let cmd_template = {
+            let mut parts = cmd.as_ref().splitn(2, "{}");
+            let prefix = parts.next().unwrap_or("");
+            let suffix = parts.next().unwrap_or("");
+            CommandTemplate::new(prefix, suffix)
+        };
+        // Initial render before waiting for any input.
+        self.draw_command_frame("", &cmd_template)?;
+
+        while let Some(event) = input.next().transpose()? {
+            let prev_len = cmd_buf.len();
+            let mut last_key_seq = None;
+
+            match event {
+                Event::Resize { cols, rows } => {
+                    self.renderer.resize(Size {
+                        width: cols,
+                        height: rows,
+                    })?;
+                    self.renderer.set_redraw_idx(self.renderer.rowoff);
+                    self.status_bar.redraw = true;
+                    self.draw_command_frame(&cmd_buf, &cmd_template);
+                    continue;
+                }
+                Event::Key(seq) => {
+                    use crate::terminal::Key::*;
+                    match (seq.key, seq.ctrl) {
+                        (Unknown, _) => continue,
+                        (Backspace, _) | (Delete, _) | (Char('h'), true) => {
+                            if !cmd_buf.is_empty(){
+                                buf.
+                            }
+                        } 
+                    }
+                }
+            }
+        }
+
+        Ok(CommandResult::Canceled)
+    }
 }

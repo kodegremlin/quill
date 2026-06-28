@@ -493,7 +493,7 @@ pub struct Highlighting {
     lines: Vec<Vec<HighlightSpan>>,
     pub needs_update: bool,
     prev_bottom: usize,
-    matched: Vec<RegionHighlight>,
+    matches: Vec<RegionHighlight>,
     rules: &'static SyntaxRules,
 }
 
@@ -503,11 +503,15 @@ impl Highlighting {
     }
 
     pub fn clear_matches(&mut self) {
-        self.matched.clear();
+        self.matches.clear();
     }
 
     pub fn has_matches(&self) -> bool {
-        !self.matched.is_empty()
+        !self.matches.is_empty()
+    }
+
+    pub fn set_matches(&mut self, matches: Vec<RegionHighlight>) {
+        self.matches = matches
     }
 }
 
@@ -525,7 +529,7 @@ impl Highlighting {
             needs_update: true,
             lines,
             prev_bottom: 0,
-            matched: Vec::new(),
+            matches: Vec::new(),
             rules,
         }
     }
@@ -539,7 +543,7 @@ impl Highlighting {
     }
 
     pub fn highlight_match(&mut self, query: &str, rows: &[Row]) {
-        self.matched.clear();
+        self.matches.clear();
         if query.is_empty() {
             return;
         }
@@ -553,7 +557,7 @@ impl Highlighting {
                 let start_x = byte_idx + match_idx;
                 let end_x = start_x + query.len();
 
-                self.matched.push(RegionHighlight {
+                self.matches.push(RegionHighlight {
                     ui_element: UiElement::SearchMatch,
                     start: (start_x, row_idx),
                     end: (end_x, row_idx),
@@ -566,7 +570,7 @@ impl Highlighting {
     pub fn apply_overlays(&self, row_idx: usize, original: &[HighlightSpan]) -> Vec<HighlightSpan> {
         // Find all search bounding boxes that exist on this specific row.
         let row_overlays: Vec<&RegionHighlight> = self
-            .matched
+            .matches
             .iter()
             .filter(|m| m.start.1 == row_idx)
             .collect();
