@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crossterm::style::Color;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

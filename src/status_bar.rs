@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::{buffer::TextBuffer, lang::Language};
 
 macro_rules! setter {

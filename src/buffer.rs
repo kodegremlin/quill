@@ -1,5 +1,3 @@
-#![allow(dead_code)] // ! FIXME: remove this when module in use
-
 use std::{
     cmp,
     fs::File,

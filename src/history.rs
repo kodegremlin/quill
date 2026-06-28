@@ -1,5 +1,3 @@
-#![allow(dead_code)] // FIXME: remove after module in use.
-
 use std::{collections::VecDeque, mem};
 
 use crate::{

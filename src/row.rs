@@ -1,5 +1,3 @@
-#![allow(dead_code)] // * FIXME: remove after the project uses this module.
-
 use anyhow::{Result, bail};
 use std::{
     mem,

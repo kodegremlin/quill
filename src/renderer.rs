@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::{io::Write, time::SystemTime};
 
 use anyhow::{Context, Result, bail};

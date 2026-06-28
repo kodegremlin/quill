@@ -1,5 +1,3 @@
-#![allow(dead_code)] // * FIXME: remove this after module in use.
-
 use crate::row::Row;
 
 /// The cursor's position within the text buffer.

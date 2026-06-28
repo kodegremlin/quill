@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crossterm::{
     cursor::{Hide, Show},
     event::{self, KeyCode, KeyEventKind, KeyModifiers},
