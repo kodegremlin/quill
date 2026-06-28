@@ -212,7 +212,7 @@ impl TextBuffer {
         &self.rows[self.row_idx]
     }
 
-    fn set_cursor(&mut self, cursor: CursorPosition) {
+    pub fn set_cursor(&mut self, cursor: CursorPosition) {
         self.col_idx = cursor.col;
         self.row_idx = cursor.row;
     }
