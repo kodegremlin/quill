@@ -8,6 +8,7 @@ adding some neovim like features, such as Modes and completions.
 ## Roadmap
 0. Provide proper documentation.
 1. ~~Syntax Highlighting.~~ ***Done***
+2. Add logging ( use the `log` crate ).
 
 ## Features in Current Scope (Not in any particular order).
 1. ~~Implement a efficient span based syntax highlighting.~~ ***Done***
