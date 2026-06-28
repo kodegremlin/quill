@@ -10,14 +10,14 @@ use std::io;
 use anyhow::Result;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct KeyEvent {
+pub struct KeySeq {
     pub ctrl: bool,
     pub key: Key,
     pub alt: bool,
 }
 
 // Functions used for testing
-impl KeyEvent {
+impl KeySeq {
     /// Functions used for testing. Returns `KeyEvent` with key initialized.
     pub fn new(key: Key) -> Self {
         Self {
@@ -50,7 +50,7 @@ impl KeyEvent {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
-    Key(KeyEvent),
+    Key(KeySeq),
     Resize { cols: u16, rows: u16 },
 }
 
@@ -153,7 +153,7 @@ impl Terminal {
         }
     }
 
-    fn map_key_event(event: event::KeyEvent) -> KeyEvent {
+    fn map_key_event(event: event::KeyEvent) -> KeySeq {
         let key = match event.code {
             KeyCode::Char(ch) => Key::Char(ch),
             KeyCode::Backspace => Key::Backspace,
@@ -176,7 +176,7 @@ impl Terminal {
 
             _ => Key::Unknown,
         };
-        KeyEvent {
+        KeySeq {
             key,
             alt: event.modifiers.contains(KeyModifiers::ALT),
             ctrl: event.modifiers.contains(KeyModifiers::CONTROL),

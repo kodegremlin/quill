@@ -4,7 +4,7 @@ use anyhow::Result;
 
 use crate::{
     buffer::{CursorDir, TextBuffer},
-    terminal::{Event, Key, KeyEvent},
+    terminal::{Event, Key, KeySeq},
 };
 
 pub struct DummyInputs(IntoIter<Event>);
@@ -24,27 +24,27 @@ impl Iterator for DummyInputs {
 }
 
 pub fn key(ch: char) -> Event {
-    Event::Key(KeyEvent::new(Key::Char(ch)))
+    Event::Key(KeySeq::new(Key::Char(ch)))
 }
 
 pub fn ctrl(ch: char) -> Event {
-    Event::Key(KeyEvent::ctrl(Key::Char(ch)))
+    Event::Key(KeySeq::ctrl(Key::Char(ch)))
 }
 
 pub fn alt(ch: char) -> Event {
-    Event::Key(KeyEvent::alt(Key::Char(ch)))
+    Event::Key(KeySeq::alt(Key::Char(ch)))
 }
 
 pub fn special(k: Key) -> Event {
-    Event::Key(KeyEvent::new(k))
+    Event::Key(KeySeq::new(k))
 }
 
 pub fn enter() -> Event {
-    Event::Key(KeyEvent::new(Key::Enter))
+    Event::Key(KeySeq::new(Key::Enter))
 }
 
 pub fn backspace() -> Event {
-    Event::Key(KeyEvent::new(Key::Backspace))
+    Event::Key(KeySeq::new(Key::Backspace))
 }
 
 pub fn dispatch_test_event(buffer: &mut TextBuffer, event: Event) {
