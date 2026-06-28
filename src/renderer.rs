@@ -370,7 +370,7 @@ impl<W: Write> Renderer<W> {
         writer: &mut B,
         redraw_idx: usize,
         rows: &[Row],
-        hl: &Highlighting,
+        highlight: &Highlighting,
     ) -> Result<()> {
         // We use saturating_sub so if the dirty state is above the camera, we
         // ignore everything above screen row = 0.
@@ -385,7 +385,7 @@ impl<W: Write> Renderer<W> {
                 queue!(writer, Print("~"), Clear(ClearType::UntilNewLine))?;
                 continue;
             }
-            let spans = hl.lines(buffer_row).unwrap_or(&[]);
+            let spans = highlight.lines(buffer_row).unwrap_or(&[]);
             let row = &rows[buffer_row];
 
             let mut span_idx = 0;
@@ -451,7 +451,7 @@ impl<W: Write> Renderer<W> {
     fn redraw(
         &mut self,
         buffer: &TextBuffer,
-        hl: &Highlighting,
+        highlight: &Highlighting,
         status_bar: &StatusBar,
     ) -> Result<()> {
         let mut canvas = Vec::with_capacity((self.num_rows + 2) * self.num_cols);
@@ -462,7 +462,7 @@ impl<W: Write> Renderer<W> {
         if buffer.is_scratch() && self.redraw_idx == Some(0) {
             self.render_welcome(&mut canvas)?;
         } else if let Some(redraw_idx) = self.redraw_idx {
-            self.draw_rows(&mut canvas, redraw_idx, buffer.rows(), hl)?;
+            self.draw_rows(&mut canvas, redraw_idx, buffer.rows(), highlight)?;
         }
         if status_bar.redraw || self.redraw_idx.is_some() {
             self.draw_status_bar(&mut canvas, status_bar)?;

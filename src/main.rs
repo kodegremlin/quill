@@ -18,6 +18,7 @@ use std::{
 mod buffer;
 mod buffer_tests;
 mod color;
+mod command;
 mod diff;
 mod highlight;
 mod history;
