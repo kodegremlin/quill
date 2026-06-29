@@ -77,8 +77,6 @@ fn main() -> Result<()> {
 
     let mut renderer = Renderer::new(size, io::stdout())?;
 
-    print!("here?");
-
     let buffer = if let Some(path) = args.file {
         TextBuffer::open(&path)?
     } else {
