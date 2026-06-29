@@ -3,13 +3,16 @@ use crate::row::Row;
 /// The cursor's position within the text buffer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CursorPosition {
-    pub col: usize,
-    pub row: usize,
+    pub col_idx: usize,
+    pub row_idx: usize,
 }
 
 impl CursorPosition {
     pub fn new(col: usize, row: usize) -> Self {
-        Self { col, row }
+        Self {
+            col_idx: col,
+            row_idx: row,
+        }
     }
 }
 
@@ -34,24 +37,24 @@ impl EditDiff {
 
         match self {
             InsertChar { at, ch } => {
-                rows[at.row].insert_char(at.col, *ch);
-                cp::new(at.col + 1, at.row)
+                rows[at.row_idx].insert_char(at.col_idx, *ch);
+                cp::new(at.col_idx + 1, at.row_idx)
             }
             DeleteChar { at, .. } => {
-                rows[at.row].delete_char(at.col);
-                cp::new(at.col.saturating_sub(1), at.row)
+                rows[at.row_idx].delete_char(at.col_idx);
+                cp::new(at.col_idx.saturating_sub(1), at.row_idx)
             }
             Insert { at, text } => {
-                rows[at.row].insert_str(at.col, text);
+                rows[at.row_idx].insert_str(at.col_idx, text);
                 let len = text.chars().count();
-                cp::new(at.col + len, at.row)
+                cp::new(at.col_idx + len, at.row_idx)
             }
             /*  NOTE: [Remove] has been changed a few times here and there, so if we see
             any panics due to cursor calculation during undo/redo, check here.*/
             Remove { at, text } => {
-                let end_x = at.col + text.chars().count();
-                rows[at.row].remove(at.col, end_x);
-                cp::new(at.col, at.row)
+                let end_x = at.col_idx + text.chars().count();
+                rows[at.row_idx].remove(at.col_idx, end_x);
+                cp::new(at.col_idx, at.row_idx)
             }
             Append { row, text } => {
                 let len = rows[*row].len();

@@ -213,8 +213,8 @@ impl TextBuffer {
     }
 
     pub fn set_cursor(&mut self, cursor: CursorPosition) {
-        self.col_idx = cursor.col;
-        self.row_idx = cursor.row;
+        self.col_idx = cursor.col_idx;
+        self.row_idx = cursor.row_idx;
     }
 
     pub fn rows(&self) -> &[Row] {
@@ -259,8 +259,8 @@ impl TextBuffer {
         }
         self.new_diff(EditDiff::InsertChar {
             at: CursorPosition {
-                col: self.col_idx,
-                row: self.row_idx,
+                col_idx: self.col_idx,
+                row_idx: self.row_idx,
             },
             ch,
         });
@@ -271,8 +271,8 @@ impl TextBuffer {
         match self.lang.indent() {
             Indent::FourSpaces(indent) => {
                 let cursor = CursorPosition {
-                    col: self.col_idx,
-                    row: self.row_idx,
+                    col_idx: self.col_idx,
+                    row_idx: self.row_idx,
                 };
                 self.new_diff(EditDiff::Insert {
                     at: cursor,
@@ -294,8 +294,8 @@ impl TextBuffer {
         let col_idx = self.col_idx - 1;
         let deleted = self.curr_row().char_at(col_idx);
         let cursor = CursorPosition {
-            col: self.col_idx,
-            row: self.row_idx,
+            col_idx: self.col_idx,
+            row_idx: self.row_idx,
         };
         self.new_diff(EditDiff::DeleteChar {
             at: cursor,
@@ -364,8 +364,8 @@ impl TextBuffer {
         let removed = line[colx..self.col_idx].to_owned();
 
         let cursor = CursorPosition {
-            col: colx,
-            row: self.row_idx,
+            col_idx: colx,
+            row_idx: self.row_idx,
         };
         self.new_diff(EditDiff::Remove {
             at: cursor,
@@ -410,8 +410,8 @@ impl TextBuffer {
         } else {
             let removed = self.curr_row()[..self.col_idx].to_owned();
             let cursor = CursorPosition {
-                col: 0,
-                row: self.row_idx,
+                col_idx: 0,
+                row_idx: self.row_idx,
             };
             self.new_diff(EditDiff::Remove {
                 at: cursor,
@@ -444,7 +444,7 @@ impl TextBuffer {
     fn new_diff(&mut self, diff: EditDiff) {
         let cursor = diff.apply(&mut self.rows);
         self.set_cursor(cursor);
-        self.set_redraw_idx(cursor.row);
+        self.set_redraw_idx(cursor.row_idx);
         self.modified = true;
         self.history.push_diff(diff);
     }

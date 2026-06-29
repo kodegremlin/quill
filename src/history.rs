@@ -59,7 +59,7 @@ impl History {
             (CursorPosition::new(0, 0), usize::MAX),
             |(_, redraw_idx), diff| {
                 let cursor = diff.inverse().apply(rows);
-                (cursor, redraw_idx.min(cursor.row))
+                (cursor, redraw_idx.min(cursor.row_idx))
             },
         );
         Some((cursor, redraw_idx, edited))
@@ -77,7 +77,7 @@ impl History {
             (CursorPosition::new(0, 0), usize::MAX),
             |(_, redraw_idx), diff| {
                 let cursor = diff.apply(rows);
-                (cursor, redraw_idx.min(cursor.row))
+                (cursor, redraw_idx.min(cursor.row_idx))
             },
         );
         Some((cursor, redraw_idx, edited))
