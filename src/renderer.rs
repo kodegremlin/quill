@@ -13,7 +13,7 @@ use unicode_width::UnicodeWidthChar;
 
 use crate::{
     buffer::TextBuffer,
-    color::{self, ThemeElement},
+    color::{self, TextElement, Theme, ThemeElement},
     highlight::Highlighting,
     row::Row,
     status_bar::StatusBar,
@@ -375,6 +375,7 @@ impl<W: Write> Renderer<W> {
         // We use saturating_sub so if the dirty state is above the camera, we
         // ignore everything above screen row = 0.
         let redraw_idx = redraw_idx.saturating_sub(self.rowoff);
+        queue!(writer, ResetColor)?;
 
         for screen_row in redraw_idx..self.num_rows {
             let buffer_row = self.rowoff + screen_row;
@@ -385,17 +386,18 @@ impl<W: Write> Renderer<W> {
                 queue!(writer, Print("~"), Clear(ClearType::UntilNewLine))?;
                 continue;
             }
-            let spans = highlight.lines(buffer_row).unwrap_or(&[]);
+            let base_spans = highlight.lines(buffer_row).unwrap_or(&[]);
+
+            let spans = highlight.apply_overlays(buffer_row, base_spans);
             let row = &rows[buffer_row];
 
             let mut span_idx = 0;
             let mut span_len = spans.first().map_or(0, |hs| hs.len);
 
+            let mut prev_style: Option<color::Style> = None;
+
             let mut visual_col = 0;
             let mut drawn_cols = 0;
-            let mut prev_bg = None;
-
-            queue!(writer, ResetColor)?;
 
             // loop responsible for printing and highlighting a single line left
             // to right.
@@ -418,28 +420,28 @@ impl<W: Write> Renderer<W> {
                 if drawn_cols + ch_width > self.num_cols {
                     break;
                 }
-                let style = if span_idx < spans.len() {
-                    let span = &spans[span_idx];
-
-                    let element = match span.overlay {
-                        Some(ui) => ThemeElement::Ui(ui),
-                        None => ThemeElement::Text(span.highlight),
-                    };
-                    color::Theme::color_for(element)
-                } else {
-                    color::Style::new(Color::White)
+                let style = match spans.get(span_idx) {
+                    Some(span) => {
+                        let element = match span.overlay {
+                            Some(ui) => ThemeElement::Ui(ui),
+                            None => ThemeElement::Text(span.highlight),
+                        };
+                        Theme::color_for(element)
+                    }
+                    None => Theme::color_for(ThemeElement::Text(TextElement::Normal)),
                 };
-                // Prevent background bleed.
-                if prev_bg.is_some() && style.bg.is_none() {
-                    queue!(writer, ResetColor)?;
+                if Some(style) != prev_style {
+                    if prev_style.is_some_and(|s| s.bg.is_some()) && style.bg.is_none() {
+                        queue!(writer, ResetColor)?;
+                    }
+                    queue!(writer, SetForegroundColor(style.fg))?;
+                    if let Some(bg) = style.bg {
+                        queue!(writer, SetBackgroundColor(bg))?;
+                    }
+                    prev_style = Some(style)
                 }
-                queue!(writer, SetForegroundColor(style.fg))?;
-                if let Some(bg) = style.bg {
-                    queue!(writer, SetBackgroundColor(bg))?;
-                }
-                prev_bg = style.bg;
-
                 queue!(writer, Print(ch))?;
+
                 visual_col += ch_width;
                 drawn_cols += ch_width;
             }

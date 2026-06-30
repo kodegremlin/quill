@@ -1,5 +1,6 @@
 use crate::{
     color::{TextElement, UiElement},
+    diff::CursorPosition,
     lang::Language,
     row::Row,
 };
@@ -138,12 +139,13 @@ impl<'a> Highlighter<'a> {
     /// and updates the state machine's previous character records.
     fn consume_chars(
         &mut self,
+        ch_count: usize,
         input: &str,
         element: TextElement,
-        ch_count: usize,
     ) -> HighlightSpan {
         debug_assert!(ch_count > 0);
         debug_assert!(!input.is_empty());
+        debug_assert!(ch_count <= input.chars().count());
 
         self.last_element = element;
 
@@ -214,7 +216,7 @@ impl<'a> Highlighter<'a> {
         // (`/*` or `*/`). We must consume the entire delimiter at once.
         // e.g., `/*/` is an edge case that this solves, if we consume one by
         // one, the scanner sees `/*` and then in the next iteration sees `*/`.
-        Some(self.consume_chars(input, TextElement::Comment, comment_delim.chars().count()))
+        Some(self.consume_chars(comment_delim.chars().count(), input, TextElement::Comment))
     }
 
     fn highlight_line_comment(&mut self, leader: &str, input: &str) -> Option<HighlightSpan> {
@@ -226,7 +228,7 @@ impl<'a> Highlighter<'a> {
         // slice.
         if self.active_quote.is_none() && input.starts_with(leader) {
             let remaining_chars = input.chars().count();
-            return Some(self.consume_chars(input, TextElement::Comment, remaining_chars));
+            return Some(self.consume_chars(remaining_chars, input, TextElement::Comment));
         }
         None
     }
@@ -289,7 +291,7 @@ impl<'a> Highlighter<'a> {
         }
         // update the state for the next word to be encountered.
         self.expecting_identifier = self.rules.definition_keywords.contains(&word);
-        Some(self.consume_chars(input, element, char_count))
+        Some(self.consume_chars(char_count, input, element))
     }
 
     fn highlight_prefix_num(
@@ -324,7 +326,7 @@ impl<'a> Highlighter<'a> {
                 // this base.
                 self.num_base = base;
                 let char_count = prefix.chars().count();
-                return Some(self.consume_chars(input, TextElement::Number, char_count));
+                return Some(self.consume_chars(char_count, input, TextElement::Number));
             }
         } else if self.num_base == base && self.last_element == TextElement::Number {
             // We are already in between parsing a prefix number. Just check if the
@@ -374,7 +376,7 @@ impl<'a> Highlighter<'a> {
             } else if ch == '\\' {
                 is_escaped = true;
             } else if ch == '\'' {
-                return Some(self.consume_chars(input, TextElement::String, char_count));
+                return Some(self.consume_chars(char_count, input, TextElement::String));
             }
         }
         None
@@ -468,23 +470,25 @@ impl<'a> Highlighter<'a> {
     }
 }
 
+// TODO: change this to take `CursorPosition`
 #[derive(Debug)]
 pub struct RegionHighlight {
     /// The color to apply according to the elements.
     pub ui_element: UiElement,
     /// The starting (x, y) coordinate.
-    pub start: (usize, usize),
+    pub start: CursorPosition,
     /// The ending (x, y) coordinate.
-    pub end: (usize, usize),
+    pub end: CursorPosition,
 }
 
 impl RegionHighlight {
-    fn contains(&self, (col, row): (usize, usize)) -> bool {
-        let ((col_start, row_start), (col_end, row_end)) = (self.start, self.end);
-        if row < row_start || row_end < row {
+    fn contains(&self, cursor: CursorPosition) -> bool {
+        let (start, end) = (self.start, self.end);
+        if cursor.row_idx < start.row_idx || cursor.row_idx > end.row_idx {
             return false;
         }
-        (row_start < row && row < row_end) || (col_start <= col && col < col_end)
+        (cursor.row_idx > start.row_idx && cursor.row_idx < end.row_idx)
+            || (cursor.col_idx >= start.col_idx && cursor.col_idx < end.col_idx)
     }
 }
 
@@ -542,37 +546,15 @@ impl Highlighting {
         self.needs_update = true;
     }
 
-    pub fn highlight_match(&mut self, query: &str, rows: &[Row]) {
-        self.matches.clear();
-        if query.is_empty() {
-            return;
-        }
-        // Loop through the file and find every occurence.
-        for (row_idx, row) in rows.iter().enumerate() {
-            let line = row.render();
-            let mut byte_idx = 0;
-
-            // Efficiently find all matches on this line.
-            while let Some(match_idx) = line[byte_idx..].find(query) {
-                let start_x = byte_idx + match_idx;
-                let end_x = start_x + query.len();
-
-                self.matches.push(RegionHighlight {
-                    ui_element: UiElement::SearchMatch,
-                    start: (start_x, row_idx),
-                    end: (end_x, row_idx),
-                });
-                byte_idx = end_x;
-            }
-        }
-    }
-
+    /// # Caution
+    /// Overlays apply in iteration order,; later overlays win on overlap - caller
+    /// must push `current-match` highlight last.
     pub fn apply_overlays(&self, row_idx: usize, original: &[HighlightSpan]) -> Vec<HighlightSpan> {
         // Find all search bounding boxes that exist on this specific row.
         let row_overlays: Vec<&RegionHighlight> = self
             .matches
             .iter()
-            .filter(|m| m.start.1 == row_idx)
+            .filter(|m| m.start.row_idx == row_idx)
             .collect();
 
         if row_overlays.is_empty() {
@@ -597,30 +579,41 @@ impl Highlighting {
         for overlay in row_overlays {
             // Ensuring the search indices never exceed the actual size of span.
             // Otherwise it'll cause panic in flat_elements due to index access.
-            let start_x = overlay.start.0.min(size);
-            let end_x = overlay.end.0.min(size);
-
+            if overlay.start.col_idx > size {
+                log::debug!(
+                    target: "highlight.rs/Highlighting::apply_overlays",
+                    "start.col_idx={} exceeds size={}", overlay.start.col_idx, size,
+                );
+            }
+            if overlay.end.col_idx > size {
+                log::debug!(
+                    target: "highlight",
+                    "end.col_idx={} exceeds size={}", overlay.end.col_idx, size,
+                );
+            }
+            let start_x = overlay.start.col_idx.min(size);
+            let end_x = overlay.end.col_idx.min(size);
             for (_, ui) in intermediate.iter_mut().take(end_x).skip(start_x) {
                 *ui = Some(overlay.ui_element);
             }
         }
-        let mut overwrite: Vec<HighlightSpan> = Vec::new();
+        let mut compressed: Vec<HighlightSpan> = Vec::new();
 
         for (highlight, overlay) in intermediate {
-            if let Some(last) = overwrite.last_mut()
+            if let Some(last) = compressed.last_mut()
                 && last.highlight == highlight
                 && last.overlay == overlay
             {
                 last.len += 1;
                 continue;
             }
-            overwrite.push(HighlightSpan {
+            compressed.push(HighlightSpan {
                 highlight,
                 overlay,
                 len: 1,
             });
         }
-        overwrite
+        compressed
     }
 
     pub fn update(&mut self, rows: &[Row], bottom: usize) {
