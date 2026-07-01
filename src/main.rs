@@ -4,7 +4,7 @@ use crate::{
     buffer::TextBuffer,
     highlight::Highlighting,
     renderer::Renderer,
-    status_bar::StatusBar,
+    status_bar::{Position, StatusBar},
     terminal::{Terminal, TerminalGuard},
 };
 
@@ -92,7 +92,13 @@ fn main() -> Result<()> {
         "CursorInfo:: col={}, row={} FileLen:: len={}",
         buffer.col_idx(), buffer.row_idx(), buffer.rows().len()
     );
-    let status = StatusBar::from_buffer(&buffer, (buffer.col_idx(), buffer.row_idx()));
+    let status = StatusBar::from_buffer(
+        &buffer,
+        Position {
+            curr: buffer.col_idx(),
+            size: buffer.row_idx(),
+        },
+    );
     let mut hl = Highlighting::default();
     hl.lang_changed(lang::Language::Rust);
 

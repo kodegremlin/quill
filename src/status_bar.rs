@@ -19,30 +19,40 @@ macro_rules! setter {
     };
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Position {
+    pub curr: usize,
+    pub size: usize,
+}
+
 #[derive(Debug)]
 pub struct StatusBar {
-    pub modified: bool,
     pub filename: String,
+    pub modified: bool, // Can show a ascii [+] icon to indicate modified like helix.
     pub lang: Language,
-    pub buf_pos: (usize, usize),
-    pub line_pos: (usize, usize),
+    pub doc_idx: Position,
+    pub line_pos: Position,
     pub redraw: bool,
 }
 
 impl StatusBar {
-    setter!(set_buf_pos, buf_pos, (usize, usize));
+    setter!(set_buf_pos, doc_idx, Position);
     setter!(set_modified, modified, bool);
     setter!(set_filename, filename, &str, filename.to_string());
     setter!(set_lang, lang, Language);
-    setter!(set_line_pos, line_pos, (usize, usize));
+    setter!(set_line_pos, line_pos, Position);
 
-    pub fn from_buffer(buf: &TextBuffer, buf_pos: (usize, usize)) -> Self {
+    pub fn from_buffer(buffer: &TextBuffer, doc_idx: Position) -> Self {
+        let line_pos = Position {
+            curr: buffer.row_idx() + 1,
+            size: buffer.rows().len(),
+        };
         Self {
-            modified: buf.modified(),
-            filename: buf.filename().to_string(),
-            lang: buf.lang,
-            buf_pos,
-            line_pos: (buf.row_idx() + 1, buf.rows().len()),
+            modified: buffer.modified(),
+            filename: buffer.filename().to_string(),
+            lang: buffer.lang,
+            doc_idx,
+            line_pos,
             redraw: false,
         }
     }
@@ -51,8 +61,8 @@ impl StatusBar {
         format!(
             "{:<20?} - {}/{} {}",
             self.filename,
-            self.buf_pos.0,
-            self.buf_pos.1,
+            self.doc_idx.curr,
+            self.doc_idx.size,
             if self.modified { " (modified) " } else { "" }
         )
     }
@@ -61,8 +71,8 @@ impl StatusBar {
         format!(
             "{} {}/{}",
             self.lang.name(),
-            self.line_pos.0,
-            self.line_pos.1,
+            self.line_pos.curr,
+            self.line_pos.size,
         )
     }
 
@@ -70,6 +80,10 @@ impl StatusBar {
         self.set_modified(buf.modified());
         self.set_lang(self.lang);
         self.set_filename(buf.filename());
-        self.set_line_pos((buf.row_idx() + 1, buf.rows().len()));
+        let line_pos = Position {
+            curr: buf.row_idx() + 1,
+            size: buf.rows().len(),
+        };
+        self.set_line_pos(line_pos);
     }
 }
