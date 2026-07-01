@@ -22,6 +22,7 @@ mod buffer_tests;
 mod color;
 mod command;
 mod diff;
+mod editor;
 mod highlight;
 mod history;
 mod lang;
@@ -51,7 +52,11 @@ fn setup_log_path() -> Option<File> {
         return None;
     }
 
-    match OpenOptions::new().create(true).append(true).open(&log_path) {
+    match OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+    {
         Ok(file) => {
             eprintln!("quill: logging to {}", log_path.display());
             Some(file)
