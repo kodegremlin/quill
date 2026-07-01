@@ -221,6 +221,13 @@ impl TextBuffer {
         self.row_idx = cursor.row_idx;
     }
 
+    pub fn cursor(&self) -> CursorPosition {
+        CursorPosition {
+            col_idx: self.col_idx,
+            row_idx: self.row_idx,
+        }
+    }
+
     pub fn rows(&self) -> &[Row] {
         &self.rows
     }
