@@ -66,14 +66,34 @@ fn color_for_text(element: TextElement) -> Style {
     match element {
         Identifier => Style::new(Color::White),
         String => Style::new(Color::Blue),
-        Keyword => Style::new(Color::Red),
-        Comment => Style::new(Color::DarkGrey),
-        Documentation => Style::new(Color::DarkGrey),
-        Number => Style::new(Color::DarkCyan),
-        Type => Style::new(Color::DarkYellow),
+        Keyword => Style::new(Color::Rgb { r: 255, g: 90, b: 88 }),
+        Comment => Style::new(Color::Rgb {
+            r: 135,
+            g: 141,
+            b: 145,
+        }),
+        Documentation => Style::new(Color::Rgb {
+            r: 149,
+            g: 156,
+            b: 161,
+        }),
+        Number => Style::new(Color::Rgb {
+            r: 176,
+            g: 161,
+            b: 255,
+        }),
+        Type => Style::new(Color::Rgb {
+            r: 84,
+            g: 179,
+            b: 132,
+        }),
         Normal => Style::new(Color::White),
-        Definition => Style::new(Color::DarkGreen),
-        Boolean => Style::new(Color::DarkRed),
+        Definition => Style::new(Color::Rgb {
+            r: 158,
+            g: 208,
+            b: 114,
+        }),
+        Boolean => Style::new(Color::Rgb { r: 255, g: 90, b: 88 }),
         Special => Style::new(Color::Magenta),
     }
 }
