@@ -4,10 +4,12 @@ use anyhow::Result;
 
 use crate::{
     buffer::{CursorDir, TextBuffer},
+    command::{Action, Command, CommandResult, NoAction, TextSearch},
+    help::HELP,
     highlight::Highlighting,
     renderer::Renderer,
     status_bar::{Position, StatusBar},
-    terminal::{Event, Size},
+    terminal::{Event, Key, KeySeq, Size},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -153,11 +155,122 @@ where
         })
     }
 
+    pub fn doc_mut(&mut self) -> &mut Document {
+        &mut self.documents[self.doc_idx]
+    }
+
     pub fn doc(&self) -> &Document {
         &self.documents[self.doc_idx]
     }
 
-    pub fn doc_mut(&mut self) -> &mut Document {
-        &mut self.documents[self.doc_idx]
+    fn canvas_init(&mut self) -> Result<()> {
+        self.render_screen()?;
+        Ok(())
+    }
+
+    pub fn edit(&mut self) -> Result<()> {
+        self.canvas_init()?;
+        while self.step()? == EditStep::Continue {
+            // Keep spinning the event loop
+        }
+        Ok(())
+    }
+
+    fn step(&mut self) -> Result<EditStep> {
+        let Some(event) = self.input.next().transpose()? else {
+            return Ok(EditStep::Quit);
+        };
+        match event {
+            Event::Resize { cols, rows } => {
+                self.renderer.resize(Size {
+                    width: cols,
+                    height: rows,
+                })?;
+                self.renderer.set_redraw_idx(self.renderer.rowoff);
+                self.status_bar.redraw = true;
+                self.render_screen()?;
+                Ok(EditStep::Continue)
+            }
+            Event::Key(seq) => {
+                let step = self.process_keypress(seq)?;
+                if step == EditStep::Continue {
+                    self.render_screen()?;
+                }
+                Ok(step)
+            }
+        }
+    }
+
+    fn render_screen(&mut self) -> Result<()> {
+        self.refresh_status_bar();
+        let doc = &mut self.documents[self.doc_idx];
+        self.renderer
+            .render(&doc.buffer, &mut doc.highlight, &self.status_bar)?;
+        self.status_bar.redraw = false;
+        Ok(())
+    }
+
+    fn refresh_status_bar(&mut self) {
+        self.status_bar.set_buf_pos(Position {
+            curr: self.doc_idx + 1,
+            size: self.documents.len(),
+        });
+        self.status_bar
+            .update_from_buf(&self.documents[self.doc_idx].buffer);
+    }
+
+    fn process_keypress(&mut self, seq: KeySeq) -> Result<EditStep> {
+        if seq.ctrl && seq.key == Key::Char('q') {
+            return Ok(EditStep::Quit);
+        }
+        Ok(EditStep::Continue)
+    }
+
+    fn prompt<A>(&mut self, prompt_text: &str, cmd_empty: bool) -> Result<CommandResult>
+    where
+        A: Action,
+    {
+        let doc = &mut self.documents[self.doc_idx];
+        let mut cmd = Command::new(
+            &mut self.renderer,
+            &mut doc.buffer,
+            &mut doc.highlight,
+            cmd_empty,
+            &mut self.status_bar,
+        );
+        cmd.run::<A, _, _>(prompt_text, &mut self.input)
+    }
+
+    fn save(&mut self) -> Result<()> {
+        if self.doc().buffer.filename() == "[No Name]" {
+            let result = self.prompt::<NoAction>("Save as: ", true)?;
+            match result {
+                CommandResult::Canceled => {
+                    self.renderer.set_info_msg("Save canceled");
+                    return Ok(());
+                }
+                CommandResult::Input(name) => {
+                    self.doc_mut().buffer.set_file(name);
+                }
+            }
+        }
+        let doc = self.doc_mut();
+        match doc.buffer.save() {
+            Ok(msg) => self.renderer.set_info_msg(msg),
+            Err(err) => self
+                .renderer
+                .set_error_msg(format!("Failed to save: {}", err)),
+        }
+        Ok(())
+    }
+
+    fn search(&mut self) -> Result<()> {
+        self.prompt::<TextSearch>("Search: ", true)?;
+        Ok(())
+    }
+
+    fn show_help(&mut self) -> Result<()> {
+        self.renderer.set_info_msg(HELP);
+        Ok(())
     }
 }

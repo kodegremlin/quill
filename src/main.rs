@@ -1,12 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{
-    buffer::TextBuffer,
-    highlight::Highlighting,
-    renderer::Renderer,
-    status_bar::{Position, StatusBar},
-    terminal::{Terminal, TerminalGuard},
-};
+use crate::{editor::Editor, terminal::Terminal};
 
 use anyhow::Result;
 use clap::Parser;
@@ -14,7 +8,7 @@ use env_logger::Target;
 use std::{
     fs::{self, File, OpenOptions},
     io::{self},
-    time::Duration,
+    iter,
 };
 
 mod buffer;
@@ -23,6 +17,7 @@ mod color;
 mod command;
 mod diff;
 mod editor;
+mod help;
 mod highlight;
 mod history;
 mod lang;
@@ -77,34 +72,16 @@ fn main() -> Result<()> {
             .filter_level(log::LevelFilter::Debug)
             .init();
     }
-    let _guard = TerminalGuard::enter()?;
+    let term = Terminal::new()?;
     let size = Terminal::size()?;
 
-    let mut renderer = Renderer::new(size, io::stdout())?;
+    let event_stream = iter::from_fn(|| Some(term.read_event()));
 
-    let buffer = if let Some(path) = args.file {
-        TextBuffer::open(&path)?
+    let mut editor = if let Some(path) = args.file {
+        Editor::open(event_stream, io::stdout(), size, &[path])?
     } else {
-        TextBuffer::empty()
+        Editor::new(event_stream, io::stdout(), size)?
     };
-    log::info!(
-        target: "buffer",
-        "CursorInfo:: col={}, row={} FileLen:: len={}",
-        buffer.col_idx(), buffer.row_idx(), buffer.rows().len()
-    );
-    let status = StatusBar::from_buffer(
-        &buffer,
-        Position {
-            curr: buffer.col_idx(),
-            size: buffer.row_idx(),
-        },
-    );
-    let mut hl = Highlighting::default();
-    hl.lang_changed(lang::Language::Rust);
-
-    renderer.set_info_msg("Text rendering complete, scrolling is left to be added.");
-    renderer.render(&buffer, &mut hl, &status)?;
-
-    std::thread::sleep(Duration::from_secs(20));
+    editor.edit()?;
     Ok(())
 }
