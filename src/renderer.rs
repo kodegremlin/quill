@@ -34,7 +34,7 @@ pub struct StatusMessage {
 }
 
 impl StatusMessage {
-    pub fn new<S: Into<String>>(msg: S, kind: StatusMessageKind) -> Self {
+    pub fn new<T: Into<String>>(msg: T, kind: StatusMessageKind) -> Self {
         Self {
             text: msg.into(),
             timestamp: SystemTime::now(),
@@ -174,12 +174,12 @@ impl<W: Write> Renderer<W> {
         self.status_msg = status_msg;
     }
 
-    pub fn set_info_msg<S: Into<String>>(&mut self, msg: S) {
+    pub fn set_info_msg<T: Into<String>>(&mut self, msg: T) {
         use StatusMessageKind::*;
         self.set_msg(Some(StatusMessage::new(msg, Info)));
     }
 
-    pub fn set_error_msg<S: Into<String>>(&mut self, msg: S) {
+    pub fn set_error_msg<T: Into<String>>(&mut self, msg: T) {
         use StatusMessageKind::*;
         self.set_msg(Some(StatusMessage::new(msg, Error)));
     }
@@ -189,7 +189,10 @@ impl<W: Write> Renderer<W> {
     }
 
     pub fn set_redraw_idx(&mut self, index: usize) {
-        self.redraw_idx = Some(self.redraw_idx.map_or(index, |curr| curr.min(index)))
+        self.redraw_idx = Some(
+            self.redraw_idx
+                .map_or(index, |curr| curr.min(index)),
+        )
     }
 
     pub fn rows(&self) -> usize {
@@ -225,7 +228,7 @@ impl<W: Write> Renderer<W> {
             Hide,
             Clear(ClearType::All),
             MoveTo(0, 0),
-            Print("Kiro Viewport Architecture: Active"),
+            Print("Quill Viewport Architecture: Active"),
             MoveTo(0, 1),
             Print(format!(
                 "Usable text grid: {} cols x {} rows",
@@ -335,7 +338,7 @@ impl<W: Write> Renderer<W> {
     }
 
     pub fn render_welcome<B: Write>(&self, writer: &mut B) -> Result<()> {
-        let welcome = "Kiro Editor -- Version 0.1";
+        let welcome = "Quill Editor -- Version 0.1";
 
         let (_, msg_len) = Self::trim_visual(welcome, self.num_cols);
         for row in 0..self.num_rows {

@@ -63,7 +63,7 @@ impl Language {
     /// Detects a language from the file extension.
     ///
     /// Returns [`Language::PlainText`] when no matching extension is found.
-    pub fn detect<S: AsRef<Path>>(path: S) -> Self {
+    pub fn detect<T: AsRef<Path>>(path: T) -> Self {
         use Language::*;
 
         if let Some(ext) = path.as_ref().extension().and_then(|x| x.to_str()) {

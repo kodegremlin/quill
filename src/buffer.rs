@@ -33,7 +33,7 @@ pub struct FilePath {
 impl FilePath {
     /// Returns `FilePath` constructed from the given string or a type that implements
     /// `Into<String>`.
-    fn from_string<S: Into<String>>(string: S) -> Self {
+    fn from_string<T: Into<String>>(string: T) -> Self {
         let display = string.into();
         Self {
             path: PathBuf::from(&display),
@@ -121,12 +121,14 @@ impl TextBuffer {
         }
     }
 
-    pub fn with_lines<S, I>(lines: I) -> Result<Self>
+    pub fn with_lines<T, I>(lines: I) -> Result<Self>
     where
-        S: AsRef<str>,
-        I: Iterator<Item = S>,
+        T: AsRef<str>,
+        I: Iterator<Item = T>,
     {
-        let rows = lines.map(|s| Row::new(s.as_ref())).collect::<Result<_>>()?;
+        let rows = lines
+            .map(|line| Row::new(line.as_ref()))
+            .collect::<Result<_>>()?;
         let mut buf = Self::empty();
         buf.rows = rows;
         Ok(buf)
@@ -179,7 +181,9 @@ impl TextBuffer {
             writeln!(writer, "{}", text).context("Could not write to file")?;
             bytes += text.len() + 1;
         }
-        writer.flush().context("Could not flush to file")?;
+        writer
+            .flush()
+            .context("Could not flush to file")?;
         self.undo_count = 0;
         self.modified = false;
         Ok(format!("{} bytes written to {}", bytes, fp.display))
@@ -240,7 +244,7 @@ impl TextBuffer {
         Lines(self.rows.iter())
     }
 
-    pub fn set_file<S: Into<String>>(&mut self, path: S) {
+    pub fn set_file<T: Into<String>>(&mut self, path: T) {
         let fp = FilePath::from_string(path);
         self.lang = Language::detect(&fp.path);
         self.file = Some(fp);
@@ -556,7 +560,11 @@ impl TextBuffer {
             }
         }
         // snap cursor to the end of line when moving up/down from a longer line.
-        let curr_row_len = self.rows.get(self.row_idx).map(|r| r.len()).unwrap_or(0);
+        let curr_row_len = self
+            .rows
+            .get(self.row_idx)
+            .map(|r| r.len())
+            .unwrap_or(0);
         if self.col_idx > curr_row_len {
             self.col_idx = curr_row_len;
         }

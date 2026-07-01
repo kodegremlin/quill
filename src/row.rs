@@ -35,7 +35,7 @@ impl Row {
 
     /// Returns an initialized `Row` from the provided parameter [line] as long
     /// as [line] can be converted into a string using `into()`.
-    pub fn new<S: Into<String>>(line: S) -> Result<Self> {
+    pub fn new<T: Into<String>>(line: T) -> Result<Self> {
         let mut row = Self {
             buffer: line.into(),
             render: String::new(),
@@ -79,12 +79,12 @@ impl Row {
         if self.buffer.len() == byte_idx {
             return self.indices.len(); // pointing after the last character in the vec.
         }
-        // TODO: could be optimized to O(n) by storing the byte indices in cache
-        // as well but introduces more maintenence for little gain.
-        // Will do later if needed.
+        /* TODO: could be optimized to O(1) by storing the byte indices in cache
+        as well but introduces more maintenence for little gain.
+        Will do later if needed. */
         self.indices
             .iter()
-            .position(|&bi| bi == byte_idx)
+            .position(|&idx| idx == byte_idx)
             .expect("byte index is not at the correct boundary of UTF-8")
     }
 
@@ -194,7 +194,7 @@ impl Row {
     }
 
     /// Inserts the given str at the given index.
-    pub fn insert_str<S: AsRef<str>>(&mut self, idx: usize, strs: S) {
+    pub fn insert_str<T: AsRef<str>>(&mut self, idx: usize, strs: T) {
         if self.len() <= idx {
             self.buffer.push_str(strs.as_ref());
         } else {
@@ -214,7 +214,7 @@ impl Row {
     }
 
     /// Appends the given string to the buffer and updates the renderer.
-    pub fn append<S: AsRef<str>>(&mut self, strs: S) {
+    pub fn append<T: AsRef<str>>(&mut self, strs: T) {
         let strs = strs.as_ref();
         if strs.is_empty() {
             return;
